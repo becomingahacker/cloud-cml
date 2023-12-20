@@ -1,0 +1,22 @@
+# These assume you've already set up the Conjur CLI and logged in.  This will
+# add secrets to the OS Keychain.
+
+# E.g.
+# CONJUR_APPLIANCE_URL="https://conjur-prod-follower.cisco.com"
+# conjur init --url "$CONJUR_APPLIANCE_URL" --account cisco --force
+# API_KEY="1x<omitted>"
+# conjur login --id "host/sto/becomingahacker/CMM-M-2T7L" --password "$API_KEY"
+# conjur whoami
+
+# Read/Write from CAPnet
+#export CONJUR_APPLIANCE_URL="https://conjur-prod-write.cisco.com"
+# Read-only from CAPnet
+export CONJUR_APPLIANCE_URL="https://conjur-prod-follower.cisco.com"
+#export CONJUR_APPLIANCE_URL="https://conjur-nonprod-follower.cisco.com"
+# Read-only from Internet
+#export CONJUR_APPLIANCE_URL="https://conjur-prod.cisco.com"
+
+export CONJUR_ACCOUNT="cisco"
+export CONJUR_AUTHN_LOGIN="$(security find-generic-password -s ${CONJUR_APPLIANCE_URL}/authn -a login -w | cut -d ':' -f 2 | base64 -d -i -)"
+export CONJUR_AUTHN_API_KEY="$(security find-generic-password -s ${CONJUR_APPLIANCE_URL}/authn -a password -w | cut -d ':' -f 2 | base64 -d -i -)"
+
