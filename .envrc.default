@@ -9,9 +9,9 @@
 # conjur whoami
 
 # Read/Write from CAPnet
-#export CONJUR_APPLIANCE_URL="https://conjur-prod-write.cisco.com"
+export CONJUR_APPLIANCE_URL="https://conjur-prod-write.cisco.com"
 # Read-only from CAPnet
-export CONJUR_APPLIANCE_URL="https://conjur-prod-follower.cisco.com"
+#export CONJUR_APPLIANCE_URL="https://conjur-prod-follower.cisco.com"
 #export CONJUR_APPLIANCE_URL="https://conjur-nonprod-follower.cisco.com"
 # Read-only from Internet
 #export CONJUR_APPLIANCE_URL="https://conjur-prod.cisco.com"
