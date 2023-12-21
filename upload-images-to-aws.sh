@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/bash
+#!/usr/bin/env bash
 
 #
 # Copyright (c) 2019-2023, Cisco Systems, Inc.
@@ -18,7 +18,13 @@
 DEFAULT_BUCKET="aws-cml-images"
 
 BUCKETNAME=${1:-$DEFAULT_BUCKET}
-ISO=${2:-/Volumes/REFPLAT}
+if [[ "$(uname -s)" == "Linux" ]]; then
+    ISO=${2:-/var/lib/libvirt/images}
+elif [[ "$(uname -s)" == "Darwin" ]]; then
+    ISO=${2:-/Volumes/REFPLAT}
+else
+    ISO=${2}
+fi
 PKG=${3:-cml2_*.pkg}
 
 function help() {
