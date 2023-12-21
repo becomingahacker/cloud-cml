@@ -19,8 +19,9 @@ aws:
   disk_size: 64
 
 secrets:
-  - &app_password sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/admin_password
-  - &sys_password sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/sysadmin_password
+  - &app_password  sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/admin_password
+  - &sys_password  sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/sysadmin_password
+  - &license_token sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/license_token
 
 hostname: cml-0.becomingahacker.com
 
@@ -43,7 +44,7 @@ sys:
 
 license:
   flavor: CML_Enterprise
-  token: your-smart-licensing-token
+  token: *license_token
   # unless you have additional nodes, leave this at zero
   nodes: 0
 

@@ -34,9 +34,9 @@ provider "cml2" {
   dynamic_config = true
 }
 
-#module "ready" {
-#  source = "./module-cml2-readyness"
-#  depends_on = [
-#    module.deploy.public_ip
-#  ]
-#}
+module "ready" {
+  source = "./module-cml2-readyness"
+  depends_on = [
+    module.deploy.public_ip
+  ]
+}

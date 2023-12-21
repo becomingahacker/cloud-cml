@@ -139,7 +139,7 @@ function cml_configure() {
         -H "Authorization: Bearer $TOKEN" \
         -H "accept: application/json" \
         -H "Content-Type: application/json" \
-        -d '{"token":"${cfg.license.token}","reregister":false}'
+        -d '{"token":"${secrets[cfg.license.token]}","reregister":false}'
 
     # no need to put in node licenses - unavailable
     if [[ "${cfg.license.flavor}" =~ ^CML_Personal || ${cfg.license.nodes} == 0 ]]; then
