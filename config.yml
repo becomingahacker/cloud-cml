@@ -9,6 +9,9 @@ aws:
   vpc: cmm-vpc
   availability_zone: us-east-2a
   subnet: cmm-subnet-public1-us-east-2a
+  mgmt_cidrs:
+    v4:
+      - 173.38.117.64/26	
   bucket: bah-machine-images
   flavor: c5d.xlarge
   profile: CiscoModelingLabs

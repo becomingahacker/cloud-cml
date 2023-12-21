@@ -29,9 +29,7 @@ locals {
       "from_port" : 1122,
       "to_port" : 1122
       "protocol" : "tcp",
-      "cidr_blocks" : [
-        "0.0.0.0/0"
-      ],
+      "cidr_blocks" : local.cfg.aws.mgmt_cidrs.v4,
       "ipv6_cidr_blocks" : [],
       "prefix_list_ids" : [],
       "security_groups" : [],
@@ -42,9 +40,7 @@ locals {
       "from_port" : 22,
       "to_port" : 22
       "protocol" : "tcp",
-      "cidr_blocks" : [
-        "0.0.0.0/0"
-      ],
+      "cidr_blocks" : local.cfg.aws.mgmt_cidrs.v4,
       "ipv6_cidr_blocks" : [],
       "prefix_list_ids" : [],
       "security_groups" : [],
@@ -55,9 +51,7 @@ locals {
       "from_port" : 9090,
       "to_port" : 9090
       "protocol" : "tcp",
-      "cidr_blocks" : [
-        "0.0.0.0/0"
-      ],
+      "cidr_blocks" : local.cfg.aws.mgmt_cidrs.v4,
       "ipv6_cidr_blocks" : [],
       "prefix_list_ids" : [],
       "security_groups" : [],
@@ -68,9 +62,7 @@ locals {
       "from_port" : 443,
       "to_port" : 443
       "protocol" : "tcp",
-      "cidr_blocks" : [
-        "0.0.0.0/0"
-      ],
+      "cidr_blocks" : local.cfg.aws.mgmt_cidrs.v4,
       "ipv6_cidr_blocks" : [],
       "prefix_list_ids" : [],
       "security_groups" : [],
@@ -83,9 +75,7 @@ locals {
       "from_port" : 2000,
       "to_port" : 7999
       "protocol" : "tcp",
-      "cidr_blocks" : [
-        "0.0.0.0/0"
-      ],
+      "cidr_blocks" : local.cfg.aws.mgmt_cidrs.v4,
       "ipv6_cidr_blocks" : [],
       "prefix_list_ids" : [],
       "security_groups" : [],
@@ -96,9 +86,7 @@ locals {
       "from_port" : 2000,
       "to_port" : 7999
       "protocol" : "udp",
-      "cidr_blocks" : [
-        "0.0.0.0/0"
-      ],
+      "cidr_blocks" : local.cfg.aws.mgmt_cidrs.v4,
       "ipv6_cidr_blocks" : [],
       "prefix_list_ids" : [],
       "security_groups" : [],
@@ -126,7 +114,9 @@ resource "aws_security_group" "sg-tf" {
       "cidr_blocks" : [
         "0.0.0.0/0"
       ],
-      "ipv6_cidr_blocks" : [],
+      "ipv6_cidr_blocks" : [
+        "::/0"
+      ],
       "prefix_list_ids" : [],
       "security_groups" : [],
       "self" : false,
@@ -151,9 +141,15 @@ resource "aws_instance" "cml" {
   key_name               = var.key_name
   subnet_id              = data.aws_subnet.subnet-tf.id
   vpc_security_group_ids = [aws_security_group.sg-tf.id]
+
+  metadata_options {
+    http_tokens = "required"
+  }
+
   root_block_device {
     volume_size = var.disk_size
   }
+
   user_data = templatefile("${path.module}/userdata.txt", {
     cfg     = local.cfg
     cml     = local.cml
