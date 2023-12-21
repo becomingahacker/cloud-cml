@@ -5,10 +5,10 @@
 #
 
 locals {
-  cfg      = yamldecode(var.cfg)
+  cfg = yamldecode(var.cfg)
 }
 
 data "conjur_secret" "secrets" {
-  for_each = toset(local.cfg.secrets.retrieve)
+  for_each = toset(local.cfg.secrets)
   name     = each.value
 }

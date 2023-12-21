@@ -23,7 +23,7 @@ function cml_remove_license() {
     API="http://ip6-localhost:8001/api/v0"
 
     # re-auth with new password
-    TOKEN=$(echo '{"username":"${app.user}","password":"${app.pass}"}' \ |
+    TOKEN=$(echo '{"username":"${cfg.app.user}","password":"${secrets[cfg.app.pass]}"}' \ |
         curl -s -d@- $API/authenticate | jq -r)
 
     # de-register the license from the controller

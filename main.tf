@@ -10,7 +10,7 @@ locals {
 }
 
 module "secrets" {
-  source = "./module-secrets"
+  source = "./module-cml2-secrets"
   cfg    = local.cfg_file
 }
 
@@ -22,12 +22,13 @@ module "deploy" {
   iam_instance_profile = local.cfg.aws.profile
   disk_size            = local.cfg.aws.disk_size
   cfg                  = local.cfg_file
+  secrets              = module.secrets.secrets
 }
 
 provider "cml2" {
   address        = "https://${module.deploy.public_ip}"
   username       = local.cfg.app.user
-  password       = local.cfg.app.pass
+  password       = module.secrets.secrets[local.cfg.app.pass]
   use_cache      = false
   skip_verify    = true
   dynamic_config = true

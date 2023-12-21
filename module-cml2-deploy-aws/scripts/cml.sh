@@ -17,14 +17,14 @@
 
 function base_setup() {
     # current location of the bucket w/ software and images
-    AWS_DEFAULT_REGION=${aws.region}
+    AWS_DEFAULT_REGION=${cfg.aws.region}
     APT_OPTS="-o Dpkg::Options::=--force-confmiss -o Dpkg::Options::=--force-confnew"
     APT_OPTS+=" -o DPkg::Progress-Fancy=0 -o APT::Color=0"
     DEBIAN_FRONTEND=noninteractive
     export APT_OPTS DEBIAN_FRONTEND AWS_DEFAULT_REGION
 
     # copy debian package from bucket into our instance
-    aws s3 cp --no-progress s3://${aws.bucket}/${app.deb} /provision/
+    aws s3 cp --no-progress s3://${cfg.aws.bucket}/${cfg.app.deb} /provision/
 
     # copy node definitions and images to the instance
     VLLI=/var/lib/libvirt/images
@@ -36,7 +36,7 @@ function base_setup() {
     if [ $(jq </provision/refplat '.definitions|length') -gt 0 ]; then
         elems=$(jq </provision/refplat -rc '.definitions|join(" ")')
         for item in $elems; do
-            aws s3 cp --no-progress s3://${aws.bucket}/refplat/$NDEF/$item.yaml $VLLI/$NDEF/
+            aws s3 cp --no-progress s3://${cfg.aws.bucket}/refplat/$NDEF/$item.yaml $VLLI/$NDEF/
         done
     fi
 
@@ -45,22 +45,22 @@ function base_setup() {
         elems=$(jq </provision/refplat -rc '.images|join(" ")')
         for item in $elems; do
             mkdir -p $VLLI/$IDEF/$item
-            aws s3 cp --no-progress --recursive s3://${aws.bucket}/refplat/$IDEF/$item/ $VLLI/$IDEF/$item/
+            aws s3 cp --no-progress --recursive s3://${cfg.aws.bucket}/refplat/$IDEF/$item/ $VLLI/$IDEF/$item/
         done
     fi
 
     # if there's no images at this point, copy what's available in the bucket
     if [ $(find $VLLI -type f | wc -l) -eq 0 ]; then
-        aws s3 cp --no-progress --recursive s3://${aws.bucket}/refplat/ $VLLI/
+        aws s3 cp --no-progress --recursive s3://${cfg.aws.bucket}/refplat/ $VLLI/
     fi
 
     systemctl stop ssh
-    apt-get install -y /provision/${app.deb}
+    apt-get install -y /provision/${cfg.app.deb}
     systemctl start ssh
 
     FILELIST=$(find /provision/ -type f -name '*.sh' | grep -v '99-dummy.sh')
     # make the bucket available for the scripts
-    BUCKET=${aws.bucket}
+    BUCKET=${cfg.aws.bucket}
     export BUCKET
     if [ -n "$FILELIST" ]; then
         systemctl stop virl2.target
@@ -87,17 +87,17 @@ function cml_configure() {
     API="http://ip6-localhost:8001/api/v0"
 
     # create system user
-    /usr/sbin/useradd --badname -m -s /bin/bash ${sys.user}
-    echo "${sys.user}:${sys.pass}" | /usr/sbin/chpasswd
-    /usr/sbin/usermod -a -G sudo ${sys.user}
+    /usr/sbin/useradd --badname -m -s /bin/bash ${cfg.sys.user}
+    echo "${cfg.sys.user}:${secrets[cfg.sys.pass]}" | /usr/sbin/chpasswd
+    /usr/sbin/usermod -a -G sudo ${cfg.sys.user}
 
     # move SSH config from default ubuntu user to new user. This also disables
     # the login for the ubuntu user by removing the SSH key.
-    mv /home/ubuntu/.ssh /home/${sys.user}/
-    chown -R ${sys.user}.${sys.user} /home/${sys.user}/.ssh
+    mv /home/ubuntu/.ssh /home/${cfg.sys.user}/
+    chown -R ${cfg.sys.user}.${cfg.sys.user} /home/${cfg.sys.user}/.ssh
 
     # change the ownership of the del.sh script to the sysadmin user
-    chown ${sys.user}.${sys.user} /provision/del.sh
+    chown ${cfg.sys.user}.${cfg.sys.user} /provision/del.sh
 
     until [ "true" = "$(curl -s $API/system_information | jq -r .ready)" ]; do
         echo "Waiting for controller to be ready..."
@@ -116,10 +116,10 @@ function cml_configure() {
         -H "Authorization: Bearer $TOKEN" \
         -H "accept: application/json" \
         -H "Content-Type: application/json" \
-        -d '{"username":"${app.user}","password":{"new_password":"${app.pass}","old_password":"'$PASS'"}}'
+        -d '{"username":"${cfg.app.user}","password":{"new_password":"${secrets[cfg.app.pass]}","old_password":"'$PASS'"}}'
 
     # re-auth with new password
-    TOKEN=$(echo '{"username":"${app.user}","password":"${app.pass}"}' \ |
+    TOKEN=$(echo '{"username":"${cfg.app.user}","password":"${secrets[cfg.app.pass]}"}' \ |
         curl -s -d@- $API/authenticate | jq -r)
 
     # this is still local, everything below talks to GCH licensing servers
@@ -128,7 +128,7 @@ function cml_configure() {
         -H "Authorization: Bearer $TOKEN" \
         -H "accept: application/json" \
         -H "Content-Type: application/json" \
-        -d \"${license.flavor}\"
+        -d \"${cfg.license.flavor}\"
 
     # we want to see what happens
     set -x
@@ -139,10 +139,10 @@ function cml_configure() {
         -H "Authorization: Bearer $TOKEN" \
         -H "accept: application/json" \
         -H "Content-Type: application/json" \
-        -d '{"token":"${license.token}","reregister":false}'
+        -d '{"token":"${cfg.license.token}","reregister":false}'
 
     # no need to put in node licenses - unavailable
-    if [[ "${license.flavor}" =~ ^CML_Personal || ${license.nodes} == 0 ]]; then
+    if [[ "${cfg.license.flavor}" =~ ^CML_Personal || ${cfg.license.nodes} == 0 ]]; then
         return 0
     fi
 
@@ -152,7 +152,7 @@ function cml_configure() {
         -H "Authorization: Bearer $TOKEN" \
         -H "accept: application/json" \
         -H "Content-Type: application/json" \
-        -d "{\"$ID\":${license.nodes}}"
+        -d "{\"$ID\":${cfg.license.nodes}}"
 }
 
 # only run the base setup when there's a provision directory

@@ -5,5 +5,5 @@
 #
 
 output "secrets" {
-  value = data.conjur_secret.secrets
+  value = { for k, v in data.conjur_secret.secrets : k => v.value }
 }

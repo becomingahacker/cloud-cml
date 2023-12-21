@@ -13,9 +13,15 @@ provider "aws" {
 }
 
 locals {
-  cfg       = yamldecode(var.cfg)
-  cml       = templatefile("${path.module}/scripts/cml.sh", local.cfg)
-  del       = templatefile("${path.module}/scripts/del.sh", local.cfg)
+  cfg = yamldecode(var.cfg)
+  cml = templatefile("${path.module}/scripts/cml.sh", {
+    cfg     = local.cfg,
+    secrets = var.secrets,
+  })
+  del = templatefile("${path.module}/scripts/del.sh", {
+    cfg     = local.cfg,
+    secrets = var.secrets,
+  })
   use_patty = length(regexall("patty\\.sh", join(" ", local.cfg.app.customize))) > 0
   cml_ingress = [
     {
@@ -149,10 +155,11 @@ resource "aws_instance" "cml" {
     volume_size = var.disk_size
   }
   user_data = templatefile("${path.module}/userdata.txt", {
-    cfg  = local.cfg
-    cml  = local.cml
-    del  = local.del
-    path = path.module
+    cfg     = local.cfg
+    cml     = local.cml
+    del     = local.del
+    path    = path.module
+    secrets = var.secrets
   })
 }
 

@@ -34,3 +34,8 @@ variable "disk_size" {
   default     = 64
   description = "root disk size in GB"
 }
+
+variable "secrets" {
+  type        = any
+  description = "secrets from secrets manager (e.g. Conjur)"
+}
