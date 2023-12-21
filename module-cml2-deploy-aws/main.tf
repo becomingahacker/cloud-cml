@@ -101,9 +101,16 @@ locals {
   ]
 }
 
+data "aws_vpc" "vpc-tf" {
+  tags = {
+    Name = "${local.cfg.aws.vpc}"
+  }
+}
+
 resource "aws_security_group" "sg-tf" {
   name        = "tf-sg-cml-${random_id.id.hex}"
   description = "CML required ports inbound/outbound"
+  vpc_id      = data.aws_vpc.vpc-tf.id
   egress = [
     {
       "description" : "any",
@@ -122,11 +129,21 @@ resource "aws_security_group" "sg-tf" {
   ingress = local.use_patty ? concat(local.cml_ingress, local.cml_patty_range) : local.cml_ingress
 }
 
+data "aws_subnet" "subnet-tf" {
+  availability_zone = local.cfg.aws.availability_zone
+
+  tags = {
+    Name = local.cfg.aws.subnet
+  }
+}
+
+
 resource "aws_instance" "cml" {
   instance_type          = var.instance_type
   ami                    = data.aws_ami.ubuntu.id
   iam_instance_profile   = var.iam_instance_profile
   key_name               = var.key_name
+  subnet_id              = data.aws_subnet.subnet-tf.id
   vpc_security_group_ids = [aws_security_group.sg-tf.id]
   root_block_device {
     volume_size = var.disk_size

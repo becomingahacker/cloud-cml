@@ -6,11 +6,18 @@
 
 aws:
   region: us-east-2
+  vpc: cmm-vpc
+  availability_zone: us-east-2a
+  subnet: cmm-subnet-public1-us-east-2a
   bucket: bah-machine-images
   flavor: c5d.xlarge
   profile: CiscoModelingLabs
   key_name: bootstrap_ssh
   disk_size: 64
+
+secrets:
+  retrieve:
+    - sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/admin_password
 
 hostname: cml-0.becomingahacker.com
 
@@ -19,7 +26,7 @@ app:
   pass: your-secret-password
   # need to escape special chars:
   # pass: '\"!@$%'
-  deb: cml2_2.6.0-5_amd64.deb
+  deb: cml2_2.6.1-11_amd64.deb
   # list must have at least ONE element, this is what the dummy is for in case
   # 00- and 01- are commented out!
   customize:
@@ -50,8 +57,8 @@ refplat:
     #- cat9000v-s1
     #- csr1000v
     #- desktop
-    #- iosv
-    #- iosvl2
+    - iosv
+    - iosvl2
     #- iosxrv9000
     #- nxosv9000
     #- server
@@ -65,8 +72,8 @@ refplat:
     #- cat9000v-s1-17.10.01prd7
     #- csr1000v-17-03-06
     #- desktop-3-16-2-xfce
-    #- iosv-159-3-m6
-    #- iosvl2-2020
+    - iosv-159-3-m6
+    - iosvl2-2020
     #- iosxrv9000-7-7-1
     #- nxosv9300-10-3-1-f
     #- server-tcl-13-1

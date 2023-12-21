@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/opt/homebrew/bin/bash
 
 #
 # Copyright (c) 2019-2023, Cisco Systems, Inc.
@@ -18,7 +18,7 @@
 DEFAULT_BUCKET="aws-cml-images"
 
 BUCKETNAME=${1:-$DEFAULT_BUCKET}
-ISO=${2:-/var/lib/libvirt/images}
+ISO=${2:-/Volumes/REFPLAT}
 PKG=${3:-cml2_*.pkg}
 
 function help() {

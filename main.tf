@@ -9,6 +9,11 @@ locals {
   cfg      = yamldecode(local.cfg_file)
 }
 
+module "secrets" {
+  source = "./module-secrets"
+  cfg    = local.cfg_file
+}
+
 module "deploy" {
   source               = "./module-cml2-deploy-aws"
   region               = local.cfg.aws.region
@@ -28,9 +33,9 @@ provider "cml2" {
   dynamic_config = true
 }
 
-module "ready" {
-  source = "./module-cml2-readyness"
-  depends_on = [
-    module.deploy.public_ip
-  ]
-}
+#module "ready" {
+#  source = "./module-cml2-readyness"
+#  depends_on = [
+#    module.deploy.public_ip
+#  ]
+#}
