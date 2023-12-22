@@ -35,7 +35,7 @@ provider "cml2" {
 }
 
 module "ready" {
-  source = "./module-cml2-readyness"
+  source = "./module-cml2-readiness"
   depends_on = [
     module.deploy.public_ip
   ]
