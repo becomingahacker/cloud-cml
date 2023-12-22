@@ -156,6 +156,10 @@ resource "aws_instance" "cml" {
     path    = path.module
     secrets = var.secrets
   })
+
+  tags = {
+    Name = local.cfg.hostname
+  }
 }
 
 data "aws_ami" "ubuntu" {
