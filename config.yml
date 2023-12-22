@@ -11,7 +11,8 @@ aws:
   subnet: cmm-subnet-public1-us-east-2a
   mgmt_cidrs:
     v4:
-      - 173.38.117.64/26	
+      - 173.38.117.64/26	# rtp-corp-nat-pool
+      - 99.69.22.234/32   # cmm-home
   bucket: bah-machine-images
   #flavor: c5n.metal
   flavor: c5d.xlarge
