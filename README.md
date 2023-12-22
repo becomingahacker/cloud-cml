@@ -18,6 +18,11 @@ The AWS CLI and Terraform can be installed on the on-prem CML controller or, whe
 
 That said, it *should be possible* to run the tooling also on macOS with tools installed via [Homebrew](https://brew.sh/). Or on Windows with WSL. However, this hasn't been tested by us.
 
+On Homebrew, the following packages are *required* to be installed and early in the PATH:
+
+- grep
+- gnu-sed
+
 ### Preparation
 
 Some of the steps and procedures outlined below are preparation steps and only need to be done once. Those are

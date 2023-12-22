@@ -133,7 +133,6 @@ data "aws_subnet" "subnet-tf" {
   }
 }
 
-
 resource "aws_instance" "cml" {
   instance_type          = var.instance_type
   ami                    = data.aws_ami.ubuntu.id

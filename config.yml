@@ -13,6 +13,7 @@ aws:
     v4:
       - 173.38.117.64/26	
   bucket: bah-machine-images
+  #flavor: c5n.metal
   flavor: c5d.xlarge
   profile: CiscoModelingLabs
   key_name: bootstrap_ssh
@@ -24,6 +25,7 @@ secrets:
   - &license_token sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/license_token
 
 hostname: cml-0.becomingahacker.com
+domain_name: becomingahacker.com
 
 app:
   user: admin
@@ -34,9 +36,9 @@ app:
   # list must have at least ONE element, this is what the dummy is for in case
   # 00- and 01- are commented out!
   customize:
-    # - 00-patch_vmx.sh
+    - 00-patch_vmx.sh
     # - 01-patty.sh
-    - 99-dummy.sh
+    # - 99-dummy.sh
 
 sys:
   user: sysadmin
@@ -60,7 +62,7 @@ refplat:
     #- cat8000v
     #- cat9000v-s1
     #- csr1000v
-    #- desktop
+    - desktop
     - iosv
     - iosvl2
     #- iosxrv9000
@@ -75,7 +77,7 @@ refplat:
     #- cat8000v-17-09-01a
     #- cat9000v-s1-17.10.01prd7
     #- csr1000v-17-03-06
-    #- desktop-3-16-2-xfce
+    - desktop-3-16-2-xfce
     - iosv-159-3-m6
     - iosvl2-2020
     #- iosxrv9000-7-7-1
