@@ -4,6 +4,7 @@
 # All rights reserved.
 #
 
+# TODO cmm - These aren't used with `duo-sso` and are set to null.  Eventually remove.
 variable "access_key" {
   type        = string
   description = "AWS access key / credential for the provisioning user"

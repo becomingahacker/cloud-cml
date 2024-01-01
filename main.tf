@@ -14,8 +14,8 @@ module "secrets" {
   cfg    = local.cfg_file
 }
 
-module "deploy" {
-  source               = "./module-cml2-deploy-aws"
+module "ec2_instance" {
+  source               = "./module-cml2-ec2-instance"
   region               = local.cfg.aws.region
   instance_type        = local.cfg.aws.flavor
   key_name             = local.cfg.aws.key_name
@@ -26,7 +26,7 @@ module "deploy" {
 }
 
 provider "cml2" {
-  address        = "https://${module.deploy.public_ip}"
+  address        = "https://${module.ec2_instance.public_ip}"
   username       = local.cfg.app.user
   password       = module.secrets.secrets[local.cfg.app.pass]
   use_cache      = false
@@ -37,6 +37,6 @@ provider "cml2" {
 module "ready" {
   source = "./module-cml2-readiness"
   depends_on = [
-    module.deploy.public_ip
+    module.ec2_instance.public_ip
   ]
 }
