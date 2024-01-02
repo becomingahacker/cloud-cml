@@ -38,6 +38,7 @@ app:
   # 00- and 01- are commented out!
   customize:
     - 00-patch_vmx.sh
+    - 02-libvirt_default_network.sh
     # - 01-patty.sh
     # - 99-dummy.sh
 

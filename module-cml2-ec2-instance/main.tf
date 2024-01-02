@@ -133,13 +133,29 @@ data "aws_subnet" "subnet-tf" {
   }
 }
 
+resource "aws_network_interface" "primary" {
+  subnet_id   = data.aws_subnet.subnet-tf.id
+  security_groups =  [aws_security_group.sg-tf.id]
+
+  # TODO cmm - hardcode for now
+  ipv4_prefix_count = 1 
+  ipv6_prefix_count = 1
+
+  tags = {
+    Name = "primary"
+  }
+}
+
 resource "aws_instance" "cml" {
   instance_type          = var.instance_type
   ami                    = data.aws_ami.ubuntu.id
   iam_instance_profile   = var.iam_instance_profile
   key_name               = var.key_name
-  subnet_id              = data.aws_subnet.subnet-tf.id
-  vpc_security_group_ids = [aws_security_group.sg-tf.id]
+
+  network_interface {
+    network_interface_id = aws_network_interface.primary.id
+    device_index         = 0
+  }
 
   metadata_options {
     http_tokens = "required"
