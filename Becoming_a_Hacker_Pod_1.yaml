@@ -25,6 +25,9 @@ nodes:
       ip domain name becomingahacker.com
       ip name-server 172.31.0.2
       ip name-server FD00:EC2::253
+      ip cef
+      ipv6 unicast-routing
+      ipv6 cef
       crypto key generate rsa modulus 768
       ip ssh server algorithm authentication password
       username cisco privilege 15 secret cisco
@@ -36,7 +39,7 @@ nodes:
       line con 0
        password cisco
       !
-      no cdp run
+      cdp run
       !
       !
       interface Loopback0
