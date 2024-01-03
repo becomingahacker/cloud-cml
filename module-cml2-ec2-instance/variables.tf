@@ -51,3 +51,8 @@ variable "lb_private_ip" {
   default     = null
   description = "private IP of load balancer for health checks"
 }
+
+variable "zone_id" {
+  type        = string
+  description = "Route53 zone ID to use for instance IP"
+}

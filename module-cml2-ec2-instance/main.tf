@@ -210,3 +210,11 @@ resource "aws_lb_target_group_attachment" "cml2" {
   target_id        = aws_instance.cml.id
   port             = 443
 }
+
+resource "aws_route53_record" "cml2" {
+  zone_id = var.zone_id
+  name    = local.cfg.hostname
+  type    = "CNAME"
+  ttl     = "300"
+  records = [aws_instance.cml.public_dns]
+}

@@ -30,8 +30,8 @@ resource "aws_lb_target_group" "bah_lb_tg" {
 
   health_check {
     protocol = "HTTPS"
-    path = "/"
-    matcher = "200"
+    path     = "/"
+    matcher  = "200"
   }
 }
 
