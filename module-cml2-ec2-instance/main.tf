@@ -152,7 +152,7 @@ resource "aws_network_interface" "primary" {
   # TODO cmm - hardcode for now
   ipv4_prefix_count = 1
 
-  # HACK cmm - Note these bugs.  cloud-init doesn't enable IPv6 in certain
+  # HACK cmm - cloud-init doesn't enable IPv6 in certain
   # situations--namely if an IPv6 prefix is present on an ENI, but a
   # non-temporary address is not present.  When it first starts, it temporarily
   # gets a v4 address (only), and hits the IMDS to see if IPv6 address configs
