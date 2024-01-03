@@ -39,3 +39,15 @@ variable "secrets" {
   type        = any
   description = "secrets from secrets manager (e.g. Conjur)"
 }
+
+variable "target_group_arn" {
+  type        = string
+  default     = null
+  description = "target group to add machine to load balancer"
+}
+
+variable "lb_private_ip" {
+  type        = string
+  default     = null
+  description = "private IP of load balancer for health checks"
+}

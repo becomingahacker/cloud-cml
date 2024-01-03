@@ -67,6 +67,17 @@ locals {
       "prefix_list_ids" : [],
       "security_groups" : [],
       "self" : false,
+    },
+    {
+      "description" : "allow HTTPS from load balancer",
+      "from_port" : 443,
+      "to_port" : 443
+      "protocol" : "tcp",
+      "cidr_blocks" : ["${var.lb_private_ip}/32"],
+      "ipv6_cidr_blocks" : [],
+      "prefix_list_ids" : [],
+      "security_groups" : [],
+      "self" : false,
     }
   ]
   cml_patty_range = [
@@ -134,11 +145,11 @@ data "aws_subnet" "subnet-tf" {
 }
 
 resource "aws_network_interface" "primary" {
-  subnet_id   = data.aws_subnet.subnet-tf.id
-  security_groups =  [aws_security_group.sg-tf.id]
+  subnet_id       = data.aws_subnet.subnet-tf.id
+  security_groups = [aws_security_group.sg-tf.id]
 
   # TODO cmm - hardcode for now
-  ipv4_prefix_count = 1 
+  ipv4_prefix_count = 1
   ipv6_prefix_count = 1
 
   tags = {
@@ -147,10 +158,10 @@ resource "aws_network_interface" "primary" {
 }
 
 resource "aws_instance" "cml" {
-  instance_type          = var.instance_type
-  ami                    = data.aws_ami.ubuntu.id
-  iam_instance_profile   = var.iam_instance_profile
-  key_name               = var.key_name
+  instance_type        = var.instance_type
+  ami                  = data.aws_ami.ubuntu.id
+  iam_instance_profile = var.iam_instance_profile
+  key_name             = var.key_name
 
   network_interface {
     network_interface_id = aws_network_interface.primary.id
@@ -192,4 +203,10 @@ data "aws_ami" "ubuntu" {
   }
 
   owners = ["099720109477"] # Owner ID of Canonical
+}
+
+resource "aws_lb_target_group_attachment" "cml2" {
+  target_group_arn = var.target_group_arn
+  target_id        = aws_instance.cml.id
+  port             = 443
 }

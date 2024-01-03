@@ -4,6 +4,10 @@
 # All rights reserved.
 #
 
+lb_fqdn: labs.becomingahacker.com
+hostname: cml-0.becomingahacker.com
+domain_name: becomingahacker.com
+
 aws:
   region: us-east-2
   vpc: cmm-vpc
@@ -24,9 +28,6 @@ secrets:
   - &app_password  sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/admin_password
   - &sys_password  sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/sysadmin_password
   - &license_token sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/license_token
-
-hostname: cml-0.becomingahacker.com
-domain_name: becomingahacker.com
 
 app:
   user: admin
