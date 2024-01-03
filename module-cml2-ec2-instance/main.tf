@@ -153,11 +153,17 @@ resource "aws_network_interface" "primary" {
   ipv4_prefix_count = 1
 
   # HACK cmm - Note these bugs.  cloud-init doesn't enable IPv6 in certain
-  # situations.  The .metal instances I've tried don't assign IPv6 IA and PD at
-  # the same time.  If you assign a prefix without an address, then later on
-  # add and IPv6 address to an ENI, PD IAIDs get set to zero and 
-  # systemd-networkd rejects the DHCPv6 Advertise message from AWS.
-  # This may be fixed on Ubuntu 22.04 and later.
+  # situations--namely if an IPv6 prefix is present on an ENI, but a
+  # non-temporary address is not present.  When it first starts, it temporarily
+  # gets a v4 address (only), and hits the IMDS to see if IPv6 address configs
+  # are present.  If no IPv6 address is in IMDS, it sets netplan to not try to
+  # get an IPv6 address at all and this sticks.  The .metal instances I've tried
+  # don't assign IPv6 IA and PD at the same time.  Further, if you assign a
+  # prefix without an address, then later on add and IPv6 address to an ENI, PD
+  # IAIDs get set to zero and systemd-networkd rejects the DHCPv6 Advertise
+  # message from AWS.  This may be fixed on Ubuntu 22.04 and later, which makes
+  # systemd-networkd more tolerant to IAIDs mismatching between IA_NAs and
+  # IA_PDs.
   #
   # DHCPv6
   #     Message type: Advertise (2)
