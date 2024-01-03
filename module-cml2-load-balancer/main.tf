@@ -27,6 +27,7 @@ resource "aws_lb_target_group" "bah_lb_tg" {
   protocol           = "TLS"
   vpc_id             = var.vpc_id
   preserve_client_ip = true
+  slow_start         = 120
 
   health_check {
     protocol = "HTTPS"
