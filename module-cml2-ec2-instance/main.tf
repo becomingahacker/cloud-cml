@@ -148,12 +148,67 @@ resource "aws_network_interface" "primary" {
   subnet_id       = data.aws_subnet.subnet-tf.id
   security_groups = [aws_security_group.sg-tf.id]
 
+
   # TODO cmm - hardcode for now
   ipv4_prefix_count = 1
+
+  # HACK cmm - Note these bugs.  cloud-init doesn't enable IPv6 in certain
+  # situations.  The .metal instances I've tried don't assign IPv6 IA and PD at
+  # the same time.  If you assign a prefix without an address, then later on
+  # add and IPv6 address to an ENI, PD IAIDs get set to zero and 
+  # systemd-networkd rejects the DHCPv6 Advertise message from AWS.
+  # This may be fixed on Ubuntu 22.04 and later.
+  #
+  # DHCPv6
+  #     Message type: Advertise (2)
+  #     Transaction ID: 0xf7a337
+  #     Client Identifier
+  #     ...
+  #     Server Identifier
+  #     ...
+  #     Preference
+  #     ...
+  #     Identity Association for Non-temporary Address
+  #         Option: Identity Association for Non-temporary Address (3)
+  #         Length: 40
+  #         Value: ed10bdb800000046000000700005001826001f161ec6bc00…
+  #         IAID: ed10bdb8 <<<---
+  #         T1: 70
+  #         T2: 112
+  #         IA Address
+  #             Option: IA Address (5)
+  #             Length: 24
+  #             Value: 26001f161ec6bc00000000000000e48b0000008c000001c2
+  #             IPv6 address: 2600:1f16:1ec6:bc00::e48b
+  #             Preferred lifetime: 140
+  #             Valid lifetime: 450
+  #     Identity Association for Prefix Delegation
+  #         Option: Identity Association for Prefix Delegation (25)
+  #         Length: 41
+  #         Value: 000000000000004600000070001a00190000008c000001c2…
+  #         IAID: 00000000 <<<---
+  #         T1: 70
+  #         T2: 112
+  #         IA Prefix
+  #             Option: IA Prefix (26)
+  #             Length: 25
+  #             Value: 0000008c000001c25026001f161ec6bc002f5d0000000000…
+  #             Preferred lifetime: 140
+  #             Valid lifetime: 450
+  #             Prefix length: 80
+  #             Prefix address: 2600:1f16:1ec6:bc00:2f5d::
+  #
+  # systemd-networkd[18652]: DHCPv6 CLIENT: Sent SOLICIT
+  # systemd-networkd[18652]: DHCPv6 CLIENT: Next retransmission in 4s
+  # systemd-networkd[18652]: DHCPv6 CLIENT: ADVERTISE has wrong IAID for IA PD
+  # systemd-networkd[18652]: DHCPv6 CLIENT: Recv ADVERTISE
+  #
+  # https://github.com/canonical/cloud-init/issues/3682
+  # https://github.com/systemd/systemd/issues/20803 
   ipv6_prefix_count = 1
 
   tags = {
-    Name = "primary"
+    Name = local.cfg.hostname
   }
 }
 
