@@ -11,5 +11,6 @@ output "cml2info" {
     "url" : "https://${local.cfg.lb_fqdn}"
     "cockpit" : "https://${local.cfg.hostname}:9090"
     "version" : module.ready.state.version
+    "breakout_tool" : "https://${local.cfg.lb_fqdn}/breakout-docs/"
   }
 }
