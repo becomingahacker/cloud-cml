@@ -2,10 +2,10 @@
 # add secrets to the OS Keychain.
 
 # E.g.
-# CONJUR_APPLIANCE_URL="https://conjur-prod-follower.cisco.com"
+# CONJUR_APPLIANCE_URL="https://conjur-prod.cisco.com"
+# #CONJUR_APPLIANCE_URL="https://conjur-prod-follower.cisco.com"
 # conjur init --url "$CONJUR_APPLIANCE_URL" --account cisco --force
-# API_KEY="1x<omitted>"
-# conjur login --id "host/sto/becomingahacker/$(hostname -s)" --password "$API_KEY"
+# conjur login --id "host/sto/becomingahacker/$(hostname -s)"
 # conjur whoami
 
 # Read/Write from CAPnet
