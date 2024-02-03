@@ -17,6 +17,14 @@ aws:
     v4:
       - 173.38.117.64/26	# rtp-corp-nat-pool
       - 99.69.22.234/32   # cmm-home
+  prod_cidrs:
+    v4:
+      - 173.38.117.64/26 # rtp-corp-nat-pool
+      - 99.69.22.234/32  # cmm-home
+      - 152.1.0.0/16     # NCSU 1
+      - 152.7.0.0/16     # NCSU 2
+      - 152.14.0.0/16    # NCSU 3
+      #- 0.0.0.0/0         # everyone
   bucket: bah-machine-images
   #flavor: z1d.metal
   #flavor: c5n.metal
@@ -43,6 +51,7 @@ app:
     - 00-patch_vmx.sh
     # - 01-patty.sh
     - 02-libvirt_default_network.sh
+    - 03-training_site.sh
     # - 99-dummy.sh
 
 sys:

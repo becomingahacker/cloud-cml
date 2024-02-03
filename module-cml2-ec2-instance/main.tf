@@ -40,7 +40,7 @@ locals {
       "from_port" : 22,
       "to_port" : 22
       "protocol" : "tcp",
-      "cidr_blocks" : local.cfg.aws.mgmt_cidrs.v4,
+      "cidr_blocks" : local.cfg.aws.prod_cidrs.v4,
       "ipv6_cidr_blocks" : [],
       "prefix_list_ids" : [],
       "security_groups" : [],
@@ -62,7 +62,7 @@ locals {
       "from_port" : 443,
       "to_port" : 443
       "protocol" : "tcp",
-      "cidr_blocks" : local.cfg.aws.mgmt_cidrs.v4,
+      "cidr_blocks" : local.cfg.aws.prod_cidrs.v4,
       "ipv6_cidr_blocks" : [],
       "prefix_list_ids" : [],
       "security_groups" : [],

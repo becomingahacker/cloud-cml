@@ -12,6 +12,8 @@
 set -e
 set -x
 
+apt install -y conntrack
+
 virsh net-destroy default && virsh net-undefine default || virsh net-undefine default || true
 
 NET_DEVICE=$(ip -j route show default | jq -r .[].dev)
@@ -44,8 +46,7 @@ IPV6_PREFIXLEN=`python3 -c "import ipaddress as i;n=i.ip_network(\"${IPV6_PREFIX
 virsh net-define <(cat <<EOF
 <network>
   <name>default</name>
-  <!-- <uuid>98739091-4ac9-4e0f-b2a5-b94b38b9cf11</uuid> -->
-  <forward mode='route' dev='ens5'/>
+  <forward mode='nat' dev='ens5'/>
   <bridge name='virbr0' stp='off' delay='0'/>
   <mac address='52:54:00:bb:cf:de'/>
   <ip address='${IPV4_FIRST}' netmask='${IPV4_NETMASK}'>
