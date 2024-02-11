@@ -220,7 +220,7 @@ resource "aws_network_interface" "primary" {
 
 resource "aws_instance" "cml" {
   instance_type        = var.instance_type
-  ami                  = data.aws_ami.ubuntu.id
+  ami                  = data.aws_ami.cloud_cml_recipe.id
   iam_instance_profile = var.iam_instance_profile
   key_name             = var.key_name
 
@@ -247,15 +247,32 @@ resource "aws_instance" "cml" {
 
   tags = {
     Name = local.cfg.hostname
+    Project = "cloud-cml"
   }
 }
 
-data "aws_ami" "ubuntu" {
+#data "aws_ami" "ubuntu" {
+#  most_recent = true
+#
+#  filter {
+#    name   = "name"
+#    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+#  }
+#
+#  filter {
+#    name   = "virtualization-type"
+#    values = ["hvm"]
+#  }
+#
+#  owners = ["099720109477"] # Owner ID of Canonical
+#}
+
+data "aws_ami" "cloud_cml_recipe" {
   most_recent = true
 
   filter {
     name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+    values = ["cloud-cml-recipe*"]
   }
 
   filter {
@@ -263,7 +280,13 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 
-  owners = ["099720109477"] # Owner ID of Canonical
+  filter {
+    name   = "tag:Project"
+    values = ["cloud-cml"]
+  }
+
+  # TODO cmm - make this configurable
+  owners = ["181171279649"] # asig-bah
 }
 
 resource "aws_lb_target_group_attachment" "cml2" {

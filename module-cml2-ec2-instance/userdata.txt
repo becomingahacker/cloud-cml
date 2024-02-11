@@ -8,17 +8,13 @@ Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment; filename="cloud-config.txt"
 
 #cloud-config
-package_update: true
-package_upgrade: true
+package_update: false
+package_upgrade: false
 
 hostname: ${cfg.hostname}
 manage_etc_hosts: true
 
-packages:
-  - awscli
-  - git
-  - curl
-  - jq
+packages: []
 write_files:
   - path: /provision/refplat
     encoding: b64

@@ -10,6 +10,10 @@ terraform {
       source  = "registry.terraform.io/cyberark/conjur"
       version = "0.6.6"
     }
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">=4.56.0"
+    }
   }
   required_version = ">= 1.1.0"
 }

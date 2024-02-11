@@ -15,6 +15,8 @@
 # set -x
 # set -e
 
+exit 0
+
 function base_setup() {
     # current location of the bucket w/ software and images
     AWS_DEFAULT_REGION=${cfg.aws.region}

@@ -63,18 +63,20 @@ module "ec2_instance" {
   zone_id              = data.aws_route53_zone.zone.zone_id
 }
 
-provider "cml2" {
-  address        = "https://${module.ec2_instance.public_ip}"
-  username       = local.cfg.app.user
-  password       = module.secrets.secrets[local.cfg.app.pass]
-  use_cache      = false
-  skip_verify    = true
-  dynamic_config = true
-}
-
-module "ready" {
-  source = "./module-cml2-readiness"
-  depends_on = [
-    module.ec2_instance.public_ip
-  ]
-}
+#
+#provider "cml2" {
+#  address        = "https://${module.ec2_instance.public_ip}"
+#  username       = local.cfg.app.user
+#  password       = module.secrets.secrets[local.cfg.app.pass]
+#  use_cache      = false
+#  skip_verify    = true
+#  dynamic_config = true
+#}
+#
+#module "ready" {
+#  source = "./module-cml2-readiness"
+#  depends_on = [
+#    module.ec2_instance.public_ip
+#  ]
+#}
+#
