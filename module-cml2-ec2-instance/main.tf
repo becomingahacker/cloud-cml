@@ -246,7 +246,7 @@ resource "aws_instance" "cml" {
   })
 
   tags = {
-    Name = local.cfg.hostname
+    Name    = local.cfg.hostname
     Project = "cloud-cml"
   }
 }

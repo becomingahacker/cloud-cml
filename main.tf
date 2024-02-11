@@ -57,7 +57,7 @@ module "ec2_instance" {
   iam_instance_profile = local.cfg.aws.profile
   disk_size            = local.cfg.aws.disk_size
   cfg                  = local.cfg_file
-  secrets              = module.secrets.secrets
+  secrets              = module.secrets.conjur_secrets
   target_group_arn     = module.load_balancer.target_group_arn
   lb_private_ip        = module.load_balancer.private_ip
   zone_id              = data.aws_route53_zone.zone.zone_id

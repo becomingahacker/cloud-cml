@@ -4,6 +4,10 @@
 # All rights reserved.
 #
 
-output "secrets" {
-  value = { for k, v in data.conjur_secret.secrets : k => v.value }
+output "conjur_secrets" {
+  value = { for k, v in data.conjur_secret.conjur_secret : k => v.value }
+}
+
+output "aws_secrets" {
+  value = { for k, v in resource.aws_secretsmanager_secret.aws_secret : k => v.id }
 }
