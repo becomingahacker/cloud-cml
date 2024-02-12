@@ -17,6 +17,9 @@ aws:
     v4:
       - 173.38.117.64/26	# rtp-corp-nat-pool
       - 99.69.22.234/32   # cmm-home
+      - 152.1.0.0/16      # NCSU 1
+      - 152.7.0.0/16      # NCSU 2
+      - 152.14.0.0/16     # NCSU 3
   prod_cidrs:
     v4:
       - 173.38.117.64/26 # rtp-corp-nat-pool
@@ -24,7 +27,7 @@ aws:
       - 152.1.0.0/16     # NCSU 1
       - 152.7.0.0/16     # NCSU 2
       - 152.14.0.0/16    # NCSU 3
-      #- 0.0.0.0/0         # everyone
+      - 0.0.0.0/0        # everyone
   bucket: bah-machine-images
   #flavor: z1d.metal
   #flavor: c5n.metal
