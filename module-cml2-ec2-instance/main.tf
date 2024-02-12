@@ -13,7 +13,12 @@ provider "aws" {
 }
 
 locals {
-  cfg       = yamldecode(var.cfg)
+  cfg = yamldecode(var.cfg)
+  cml_config_script = templatefile("${path.module}/config.sh.tftpl",
+    {
+      cfg = local.cfg
+    }
+  )
   use_patty = length(regexall("patty\\.sh", join(" ", local.cfg.app.customize))) > 0
   cml_ingress = [
     {
@@ -220,7 +225,8 @@ data "cloudinit_config" "cloud_init_user_data" {
         cfg         = local.cfg
         secrets     = var.secrets
         cml_scripts = var.cml_scripts
-      }
+        cml_config_script = local.cml_config_script
+       }
     )
   }
 }

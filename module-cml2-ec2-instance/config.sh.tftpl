@@ -1,0 +1,13 @@
+AWS_REGION='${cfg.aws.region}'
+AWS_BUCKET='${cfg.aws.bucket}'
+APP_DEB='${cfg.app.deb}'
+APP_USER='${cfg.app.user}'
+APP_PASSWD_SECRET='${cfg.app.pass}'
+APP_PASSWD="$(aws secretsmanager get-secret-value --secret-id $${APP_PASSWD_SECRET} | jq -r .SecretString)"
+SYS_USER='${cfg.sys.user}'
+SYS_PASSWD_SECRET='${cfg.sys.pass}'
+SYS_PASSWD="$(aws secretsmanager get-secret-value --secret-id $${SYS_PASSWD_SECRET} | jq -r .SecretString)"
+LICENSE_FLAVOR='${cfg.license.flavor}'
+LICENSE_TOKEN_SECRET='${cfg.license.token}'
+LICENSE_TOKEN="$(aws secretsmanager get-secret-value --secret-id $${LICENSE_TOKEN_SECRET} | jq -r .SecretString)"
+LICENSE_NODES='${cfg.license.nodes}'
