@@ -32,6 +32,12 @@ module "secrets" {
   cfg    = local.cfg_file
 }
 
+module "scripts" {
+  source  = "./module-cml2-scripts"
+  cfg     = local.cfg_file
+  secrets = module.secrets.conjur_secrets
+}
+
 module "certificate" {
   source  = "./module-cml2-certificate"
   cfg     = local.cfg_file

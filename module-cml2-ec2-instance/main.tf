@@ -14,14 +14,14 @@ provider "aws" {
 
 locals {
   cfg = yamldecode(var.cfg)
-  cml = templatefile("${path.module}/scripts/cml.sh", {
-    cfg     = local.cfg,
-    secrets = var.secrets,
-  })
-  del = templatefile("${path.module}/scripts/del.sh", {
-    cfg     = local.cfg,
-    secrets = var.secrets,
-  })
+  #cml = templatefile("${path.module}/scripts/cml.sh", {
+  #  cfg     = local.cfg,
+  #  secrets = var.secrets,
+  #})
+  #del = templatefile("${path.module}/scripts/del.sh", {
+  #  cfg     = local.cfg,
+  #  secrets = var.secrets,
+  #})
   use_patty = length(regexall("patty\\.sh", join(" ", local.cfg.app.customize))) > 0
   cml_ingress = [
     {
@@ -239,8 +239,6 @@ resource "aws_instance" "cml" {
 
   user_data = templatefile("${path.module}/userdata.txt", {
     cfg     = local.cfg
-    cml     = local.cml
-    del     = local.del
     path    = path.module
     secrets = var.secrets
   })
@@ -250,22 +248,6 @@ resource "aws_instance" "cml" {
     Project = "cloud-cml"
   }
 }
-
-#data "aws_ami" "ubuntu" {
-#  most_recent = true
-#
-#  filter {
-#    name   = "name"
-#    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
-#  }
-#
-#  filter {
-#    name   = "virtualization-type"
-#    values = ["hvm"]
-#  }
-#
-#  owners = ["099720109477"] # Owner ID of Canonical
-#}
 
 data "aws_ami" "cloud_cml_recipe" {
   most_recent = true
