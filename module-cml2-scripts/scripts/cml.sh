@@ -6,16 +6,10 @@
 # All rights reserved.
 #
 
-# NOTE: vars with dollar curly brace are HCL template vars, getting replaced
-# by Terraform with actual values before the script is run!
-#
-# If a dollar curly brace is needed in the shell script itself, it needs to be
-# written as $${VARNAME} (two dollar signs)
+set -x
+set -e
 
-# set -x
-# set -e
-
-exit 0
+##exit 0
 
 function base_setup() {
     # current location of the bucket w/ software and images
@@ -60,7 +54,7 @@ function base_setup() {
     apt-get install -y /provision/${cfg.app.deb}
     systemctl start ssh
 
-    FILELIST=$(find /provision/ -type f -name '*.sh' | grep -v '99-dummy.sh')
+    FILELIST=$(find /provision/ -type f -regex '[0-9]{2}-.*' | grep -v '99-dummy.sh')
     # make the bucket available for the scripts
     BUCKET=${cfg.aws.bucket}
     export BUCKET

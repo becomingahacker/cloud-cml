@@ -18,8 +18,12 @@ locals {
 
 resource "aws_s3_bucket" "cml_bucket" {
   bucket = "${local.cfg.aws.bucket}"
+
   # Never destroy the bucket.
   force_destroy = false
+  lifecycle {
+    prevent_destroy = true
+  }
 
   tags = {
     Project = "cloud-cml"
@@ -28,8 +32,11 @@ resource "aws_s3_bucket" "cml_bucket" {
 
 resource "aws_s3_object" "cml_scripts" {
   for_each = fileset("${path.module}/scripts", "*.sh")
-  bucket   = resource.aws_s3_bucket.cml_bucket.bucket
-  key      = each.value
+  bucket   = resource.aws_s3_bucket.cml_bucket.id
+  key      = "scripts/${each.value}"
   source   = "${path.module}/scripts/${each.value}"
-  force_destroy = false
+  force_destroy = true
+  tags = {
+    Project = "cloud-cml"
+  }
 }
