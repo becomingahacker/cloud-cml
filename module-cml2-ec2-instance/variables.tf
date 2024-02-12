@@ -56,3 +56,8 @@ variable "zone_id" {
   type        = string
   description = "Route53 zone ID to use for instance IP"
 }
+
+variable "cml_scripts" {
+  type        = map(string)
+  description = "scripts to be executed on the instance"
+}

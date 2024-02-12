@@ -67,6 +67,7 @@ module "ec2_instance" {
   target_group_arn     = module.load_balancer.target_group_arn
   lb_private_ip        = module.load_balancer.private_ip
   zone_id              = data.aws_route53_zone.zone.zone_id
+  cml_scripts          = module.scripts.cml_scripts
 }
 
 #

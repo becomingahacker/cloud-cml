@@ -13,15 +13,7 @@ provider "aws" {
 }
 
 locals {
-  cfg = yamldecode(var.cfg)
-  #cml = templatefile("${path.module}/scripts/cml.sh", {
-  #  cfg     = local.cfg,
-  #  secrets = var.secrets,
-  #})
-  #del = templatefile("${path.module}/scripts/del.sh", {
-  #  cfg     = local.cfg,
-  #  secrets = var.secrets,
-  #})
+  cfg       = yamldecode(var.cfg)
   use_patty = length(regexall("patty\\.sh", join(" ", local.cfg.app.customize))) > 0
   cml_ingress = [
     {
@@ -148,7 +140,6 @@ resource "aws_network_interface" "primary" {
   subnet_id       = data.aws_subnet.subnet-tf.id
   security_groups = [aws_security_group.sg-tf.id]
 
-
   # TODO cmm - hardcode for now
   ipv4_prefix_count = 1
 
@@ -218,6 +209,22 @@ resource "aws_network_interface" "primary" {
   }
 }
 
+data "cloudinit_config" "cloud_init_user_data" {
+  gzip          = false
+  base64_encode = false
+
+  part {
+    content_type = "text/cloud-config"
+    content = templatefile("${path.module}/cloud_init_user_data.tftpl",
+      {
+        cfg         = local.cfg
+        secrets     = var.secrets
+        cml_scripts = var.cml_scripts
+      }
+    )
+  }
+}
+
 resource "aws_instance" "cml" {
   instance_type        = var.instance_type
   ami                  = data.aws_ami.cloud_cml_recipe.id
@@ -237,11 +244,7 @@ resource "aws_instance" "cml" {
     volume_size = var.disk_size
   }
 
-  user_data = templatefile("${path.module}/userdata.txt", {
-    cfg     = local.cfg
-    path    = path.module
-    secrets = var.secrets
-  })
+  user_data = data.cloudinit_config.cloud_init_user_data.rendered
 
   tags = {
     Name    = local.cfg.hostname

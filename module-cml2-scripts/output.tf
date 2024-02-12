@@ -4,7 +4,7 @@
 # All rights reserved.
 #
 
-#output "s3_scripts" {
-#  value = { for k, v in data.conjur_secret.conjur_secret : k => v.value }
-#}
+output "cml_scripts" {
+  value = { for k, v in resource.aws_s3_object.cml_scripts : k => v.id }
+}
 

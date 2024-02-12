@@ -47,12 +47,11 @@ app:
   # list must have at least ONE element, this is what the dummy is for in case
   # 00- and 01- are commented out!
   customize:
-    - 00-configure_aws_region.sh
     # if not using bare metal:
-    # - 00-patch_vmx.sh
+    - 00-patch_vmx.sh
     # - 01-patty.sh
-    # - 02-libvirt_default_network.sh
-    # - 03-training_site.sh
+    - 02-libvirt_default_network.sh
+    - 03-training_site.sh
     # - 99-dummy.sh
 
 sys:
