@@ -15,8 +15,7 @@ echo "03-training_site start"
 sed -ie 's/# ATTENTION THIS/include \/etc\/nginx\/training-site.conf;\n  # ATTENTION THIS/' /etc/nginx/conf.d/controller.conf
 
 # TODO cmm - templatize using config?
-cat <<EOF > /etc/nginx/training-site.conf
-# ${config}
+cat <<'EOF' > /etc/nginx/training-site.conf
 location /training {
   include /etc/nginx/security-headers.conf;
   #include /etc/nginx/csp.conf;
