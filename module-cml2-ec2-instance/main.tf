@@ -222,11 +222,11 @@ data "cloudinit_config" "cloud_init_user_data" {
     content_type = "text/cloud-config"
     content = templatefile("${path.module}/cloud_init_user_data.tftpl",
       {
-        cfg         = local.cfg
-        secrets     = var.secrets
-        cml_scripts = var.cml_scripts
+        cfg               = local.cfg
+        secrets           = var.secrets
+        cml_scripts       = var.cml_scripts
         cml_config_script = local.cml_config_script
-       }
+      }
     )
   }
 }

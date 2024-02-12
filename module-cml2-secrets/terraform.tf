@@ -7,7 +7,7 @@
 terraform {
   required_providers {
     conjur = {
-      source  = "registry.terraform.io/cyberark/conjur"
+      source  = "cyberark/conjur"
       version = "0.6.6"
     }
     aws = {
