@@ -7,6 +7,7 @@
 locals {
   cfg_file = file("config.yml")
   cfg      = yamldecode(local.cfg_file)
+  lab_fqdn = local.cfg.lb_fqdn_alias == null ? local.cfg.lb_fqdn : local.cfg.lb_fqdn_alias
 }
 
 data "aws_vpc" "vpc" {
@@ -59,23 +60,24 @@ module "load_balancer" {
 }
 
 module "ec2_instance" {
-  source               = "./module-cml2-ec2-instance"
-  region               = local.cfg.aws.region
-  instance_type        = local.cfg.aws.flavor
-  key_name             = local.cfg.aws.key_name
-  iam_instance_profile = local.cfg.aws.profile
-  disk_size            = local.cfg.aws.disk_size
-  cfg                  = local.cfg_file
-  secrets              = module.secrets.conjur_secrets
-  target_group_arn     = module.load_balancer.target_group_arn
-  lb_private_ip        = module.load_balancer.private_ip
-  zone_id              = data.aws_route53_zone.zone.zone_id
-  cml_scripts          = module.scripts.cml_scripts
+  source                   = "./module-cml2-ec2-instance"
+  region                   = local.cfg.aws.region
+  instance_type            = local.cfg.aws.flavor
+  key_name                 = local.cfg.aws.key_name
+  iam_instance_profile     = local.cfg.aws.profile
+  disk_size                = local.cfg.aws.disk_size
+  cfg                      = local.cfg_file
+  secrets                  = module.secrets.conjur_secrets
+  target_group_arn         = module.load_balancer.target_group_arn
+  target_group_cockpit_arn = module.load_balancer.target_group_cockpit_arn
+  lb_private_ip            = module.load_balancer.private_ip
+  zone_id                  = data.aws_route53_zone.zone.zone_id
+  cml_scripts              = module.scripts.cml_scripts
 }
 
-
 provider "cml2" {
-  address        = "https://${module.ec2_instance.public_ip}"
+  address = "https://${module.ec2_instance.public_ip}"
+  #address        = "https://{local.lab_fqdn}:443/"
   username       = local.cfg.app.user
   password       = module.secrets.conjur_secrets[local.cfg.app.pass]
   use_cache      = false
@@ -84,7 +86,9 @@ provider "cml2" {
 }
 
 module "ready" {
-  source = "./module-cml2-readiness"
+  source                     = "./module-cml2-readiness"
+  target_group_attachment_id = module.ec2_instance.target_group_attachment_id
+
   depends_on = [
     module.ec2_instance.public_ip
   ]

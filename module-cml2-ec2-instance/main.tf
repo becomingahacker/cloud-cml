@@ -75,6 +75,17 @@ locals {
       "prefix_list_ids" : [],
       "security_groups" : [],
       "self" : false,
+    },
+    {
+      "description" : "allow Cockpit from load balancer",
+      "from_port" : 9090,
+      "to_port" : 9090
+      "protocol" : "tcp",
+      "cidr_blocks" : ["${var.lb_private_ip}/32"],
+      "ipv6_cidr_blocks" : [],
+      "prefix_list_ids" : [],
+      "security_groups" : [],
+      "self" : false,
     }
   ]
   cml_patty_range = [
@@ -284,6 +295,12 @@ resource "aws_lb_target_group_attachment" "cml2" {
   target_group_arn = var.target_group_arn
   target_id        = aws_instance.cml.id
   port             = 443
+}
+
+resource "aws_lb_target_group_attachment" "cml2_cockpit" {
+  target_group_arn = var.target_group_cockpit_arn
+  target_id        = aws_instance.cml.id
+  port             = 9090
 }
 
 resource "aws_route53_record" "cml2" {

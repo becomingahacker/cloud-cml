@@ -46,6 +46,12 @@ variable "target_group_arn" {
   description = "target group to add machine to load balancer"
 }
 
+variable "target_group_cockpit_arn" {
+  type        = string
+  default     = null
+  description = "target group to add machine to load balancer for Cockpit"
+}
+
 variable "lb_private_ip" {
   type        = string
   default     = null

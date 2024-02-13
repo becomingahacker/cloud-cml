@@ -35,6 +35,20 @@ resource "aws_lb_target_group" "bah_lb_tg" {
   }
 }
 
+resource "aws_lb_target_group" "bah_cockpit_tg" {
+  name               = "bah-cockpit-tg"
+  port               = 9090
+  protocol           = "TLS"
+  vpc_id             = var.vpc_id
+  preserve_client_ip = true
+
+  health_check {
+    protocol = "HTTPS"
+    path     = "/"
+    matcher  = "200"
+  }
+}
+
 resource "aws_lb_listener" "bah_lb_lis" {
   load_balancer_arn = aws_lb.bah_lb.arn
   port              = "443"
@@ -44,6 +58,18 @@ resource "aws_lb_listener" "bah_lb_lis" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.bah_lb_tg.arn
+  }
+}
+
+resource "aws_lb_listener" "bah_cockpit_lis" {
+  load_balancer_arn = aws_lb.bah_lb.arn
+  port              = "9090"
+  protocol          = "TLS"
+  certificate_arn   = var.certificate_arn
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.bah_cockpit_tg.arn
   }
 }
 
