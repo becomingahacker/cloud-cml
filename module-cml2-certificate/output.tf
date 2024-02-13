@@ -7,3 +7,7 @@
 output "certificate_arn" {
   value = aws_acm_certificate.cml2_cert.arn
 }
+
+output "certificate_arn_valid_id" {
+  value = resource.aws_acm_certificate_validation.cml_cert_valid.id
+}

@@ -24,6 +24,12 @@ variable "fqdn" {
   description = "loadbalancer fully qualified domain name to register in Route53"
 }
 
+variable "fqdn_alias" {
+  type        = string
+  description = "loadbalancer fully qualified domain name alias to register in Route53"
+  default     = null
+}
+
 variable "zone_id" {
   type        = string
   description = "Route53 zone ID"
@@ -32,4 +38,9 @@ variable "zone_id" {
 variable "certificate_arn" {
   type        = string
   description = "ACM certificate ARN to associate with the load balancer for TLS"
+}
+
+variable "certificate_arn_valid_id" {
+  type        = string
+  description = "ACM certificate validated ARN to associate with the load balancer for TLS"
 }

@@ -68,3 +68,12 @@ data "aws_network_interface" "bah_lb_eni" {
     values = [each.value]
   }
 }
+
+resource "aws_route53_record" "bah_lb_dns_alias" {
+  count   = var.fqdn_alias != null ? 1 : 0
+  zone_id = var.zone_id
+  name    = var.fqdn_alias
+  type    = "A"
+  ttl     = "300"
+  records = [for eni in data.aws_network_interface.bah_lb_eni : eni.association[0].public_ip]
+}

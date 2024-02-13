@@ -39,20 +39,23 @@ module "scripts" {
 }
 
 module "certificate" {
-  source  = "./module-cml2-certificate"
-  cfg     = local.cfg_file
-  fqdn    = local.cfg.lb_fqdn
-  zone_id = data.aws_route53_zone.zone.zone_id
+  source     = "./module-cml2-certificate"
+  cfg        = local.cfg_file
+  fqdn       = local.cfg.lb_fqdn
+  fqdn_alias = local.cfg.lb_fqdn_alias
+  zone_id    = data.aws_route53_zone.zone.zone_id
 }
 
 module "load_balancer" {
-  source          = "./module-cml2-load-balancer"
-  subnets         = tolist([data.aws_subnet.subnet.id])
-  vpc_id          = data.aws_vpc.vpc.id
-  fqdn            = local.cfg.lb_fqdn
-  zone_id         = data.aws_route53_zone.zone.zone_id
-  certificate_arn = module.certificate.certificate_arn
-  cfg             = local.cfg_file
+  source                   = "./module-cml2-load-balancer"
+  subnets                  = tolist([data.aws_subnet.subnet.id])
+  vpc_id                   = data.aws_vpc.vpc.id
+  fqdn                     = local.cfg.lb_fqdn
+  fqdn_alias               = local.cfg.lb_fqdn_alias
+  zone_id                  = data.aws_route53_zone.zone.zone_id
+  certificate_arn          = module.certificate.certificate_arn
+  certificate_arn_valid_id = module.certificate.certificate_arn_valid_id
+  cfg                      = local.cfg_file
 }
 
 module "ec2_instance" {

@@ -14,6 +14,12 @@ variable "fqdn" {
   description = "Fully qualified domain name of certificate"
 }
 
+variable "fqdn_alias" {
+  type        = string
+  description = "Fully qualified domain name alias of certificate SAN"
+  default     = null
+}
+
 variable "zone_id" {
   type        = string
   description = "Route53 zone ID to use for domain validation"

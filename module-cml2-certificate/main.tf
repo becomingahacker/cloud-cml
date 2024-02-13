@@ -5,12 +5,14 @@
 #
 
 locals {
-  cfg = yamldecode(var.cfg)
+  cfg  = yamldecode(var.cfg)
+  sans = var.fqdn_alias != null ? [var.fqdn, var.fqdn_alias] : [var.fqdn]
 }
 
 resource "aws_acm_certificate" "cml2_cert" {
-  domain_name       = var.fqdn
-  validation_method = "DNS"
+  domain_name               = var.fqdn
+  validation_method         = "DNS"
+  subject_alternative_names = local.sans
 
   tags = {
     Name = var.fqdn
@@ -36,4 +38,9 @@ resource "aws_route53_record" "cml2_cert" {
   ttl             = 60
   type            = each.value.type
   zone_id         = var.zone_id
+}
+
+resource "aws_acm_certificate_validation" "cml_cert_valid" {
+  certificate_arn         = resource.aws_acm_certificate.cml2_cert.arn
+  validation_record_fqdns = [for record in aws_route53_record.cml2_cert : record.fqdn]
 }

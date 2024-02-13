@@ -4,15 +4,26 @@
 # All rights reserved.
 #
 
+#
+# This is the configuration file for the CML bootstrap script.
+#
+
+# Load balancer fully qualified domain name.  Uses a CNAME to point to the load balancer.
 lb_fqdn: labs.becomingahacker.com
+# Load balancer alias. Uses an A record to point to the load balancer.  Set to 'null' to disable.
+lb_fqdn_alias: becomingahacker.com
+# Cisco Modeling Labs host.  This is used for Cockpit (tcp/9090)
 hostname: cml-0.becomingahacker.com
 domain_name: becomingahacker.com
 
+# AWS configs
 aws:
   region: us-east-2
   vpc: cmm-vpc
   availability_zone: us-east-2a
   subnet: cmm-subnet-public1-us-east-2a
+
+  # CIDRs for accessing management endpoints such as Cockpit and SSH for the host (tcp/1122)
   mgmt_cidrs:
     v4:
       - 173.38.117.64/26	# rtp-corp-nat-pool
@@ -20,19 +31,28 @@ aws:
       - 152.1.0.0/16      # NCSU 1
       - 152.7.0.0/16      # NCSU 2
       - 152.14.0.0/16     # NCSU 3
+
+  # CIDRs for accessing production (HTTPS, SSH console server tcp/22)
   prod_cidrs:
     v4:
-      - 173.38.117.64/26 # rtp-corp-nat-pool
-      - 99.69.22.234/32  # cmm-home
-      - 152.1.0.0/16     # NCSU 1
-      - 152.7.0.0/16     # NCSU 2
-      - 152.14.0.0/16    # NCSU 3
+      #- 173.38.117.64/26 # rtp-corp-nat-pool
+      #- 99.69.22.234/32  # cmm-home
+      #- 152.1.0.0/16     # NCSU 1
+      #- 152.7.0.0/16     # NCSU 2
+      #- 152.14.0.0/16    # NCSU 3
       - 0.0.0.0/0        # everyone
+
+  # The S3 bucket where reference platforms are stored, along with scripts to set up CML
   bucket: bah-machine-images
+
+  # The EC2 instance type to use.  Use a .metal type for /dev/kvm support.
   #flavor: z1d.metal
   #flavor: c5n.metal
   flavor: c5d.xlarge
+
+  # IAM Role for EC2 host to assume
   profile: CiscoModelingLabs
+
   key_name: bootstrap_ssh
   disk_size: 64
 
