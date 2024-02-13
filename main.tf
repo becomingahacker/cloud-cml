@@ -40,13 +40,13 @@ module "scripts" {
 }
 
 module "prefix_list_mgmt_v4" {
-  source  = "./module-cml-prefix-list-v4"
+  source  = "./module-cml2-prefix-list-v4"
   name    = "cml-prefix-list-mgmt-v4"
   entries = local.cfg.aws.mgmt_cidrs.v4
 }
 
 module "prefix_list_prod_v4" {
-  source  = "./module-cml-prefix-list-v4"
+  source  = "./module-cml2-prefix-list-v4"
   name    = "cml-prefix-list-mgmt-v4"
   entries = local.cfg.aws.prod_cidrs.v4
 }
