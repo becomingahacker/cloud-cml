@@ -12,8 +12,9 @@
 lb_fqdn: labs.becomingahacker.com
 # Load balancer alias. Uses an A record to point to the load balancer.  Set to 'null' to disable.
 lb_fqdn_alias: becomingahacker.com
-# Cisco Modeling Labs host.  This is used for Cockpit (tcp/9090)
+# Cisco Modeling Labs host.  This is used for Cockpit (tcp/9090) and SSH (tcp/22) access.
 hostname: cml-0.becomingahacker.com
+# Route53 zone name
 domain_name: becomingahacker.com
 
 # AWS configs
@@ -26,21 +27,40 @@ aws:
   # CIDRs for accessing management endpoints such as Cockpit and SSH for the host (tcp/1122)
   mgmt_cidrs:
     v4:
-      - 173.38.117.64/26	# rtp-corp-nat-pool
-      - 99.69.22.234/32   # cmm-home
-      - 152.1.0.0/16      # NCSU 1
-      - 152.7.0.0/16      # NCSU 2
-      - 152.14.0.0/16     # NCSU 3
+      - description: "rtp-corp-nat-pool"
+        cidr: 173.38.117.64/26
+      - description: "cmm-home-rtr" 
+        cidr: 99.69.22.234/32
+      - description: "cmm-home-blk" 
+        cidr: 23.116.118.232/29
+      - description: "NETBLK-CISCO-GEN-6 for use in San Jose, EMEA, and RTP"
+        cidr: 64.100.0.0/14
+      - description: "NETBLK-CISCO-GEN-6 for use in AsiaPac"
+        cidr: 64.104.0.0/16
+      - description: "CISCO-GEN-8"
+        cidr: 173.36.0.0/14
 
   # CIDRs for accessing production (HTTPS, SSH console server tcp/22)
   prod_cidrs:
     v4:
-      #- 173.38.117.64/26 # rtp-corp-nat-pool
-      #- 99.69.22.234/32  # cmm-home
-      #- 152.1.0.0/16     # NCSU 1
-      #- 152.7.0.0/16     # NCSU 2
-      #- 152.14.0.0/16    # NCSU 3
-      - 0.0.0.0/0        # everyone
+      - description: "rtp-corp-nat-pool"
+        cidr: 173.38.117.64/26
+      - description: "cmm-home-rtr" 
+        cidr: 99.69.22.234/32
+      - description: "cmm-home-blk" 
+        cidr: 23.116.118.232/29
+      - description: "NCSU 1"
+        cidr: 152.1.0.0/16
+      - description: "NCSU 2"
+        cidr: 152.7.0.0/16
+      - description: "NCSU 3"
+        cidr: 152.14.0.0/16
+      - description: "NETBLK-CISCO-GEN-6 for use in San Jose, EMEA, and RTP"
+        cidr: 64.100.0.0/14
+      - description: "NETBLK-CISCO-GEN-6 for use in AsiaPac"
+        cidr: 64.104.0.0/16
+      - description: "CISCO-GEN-8"
+        cidr: 173.36.0.0/14
 
   # The S3 bucket where reference platforms are stored, along with scripts to set up CML
   bucket: bah-machine-images

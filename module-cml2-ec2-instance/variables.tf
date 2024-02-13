@@ -67,3 +67,13 @@ variable "cml_scripts" {
   type        = map(string)
   description = "scripts to be executed on the instance"
 }
+
+variable "mgmt_cidrs_id" {
+  type        = string
+  description = "Managed prefix list ID for management CIDRs"
+}
+
+variable "prod_cidrs_id" {
+  type        = string
+  description = "Managed prefix list ID for production CIDRs"
+}

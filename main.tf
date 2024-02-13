@@ -39,6 +39,18 @@ module "scripts" {
   secrets = module.secrets.conjur_secrets
 }
 
+module "prefix_list_mgmt_v4" {
+  source  = "./module-cml-prefix-list-v4"
+  name    = "cml-prefix-list-mgmt-v4"
+  entries = local.cfg.aws.mgmt_cidrs.v4
+}
+
+module "prefix_list_prod_v4" {
+  source  = "./module-cml-prefix-list-v4"
+  name    = "cml-prefix-list-mgmt-v4"
+  entries = local.cfg.aws.prod_cidrs.v4
+}
+
 module "certificate" {
   source     = "./module-cml2-certificate"
   cfg        = local.cfg_file
@@ -73,6 +85,8 @@ module "ec2_instance" {
   lb_private_ip            = module.load_balancer.private_ip
   zone_id                  = data.aws_route53_zone.zone.zone_id
   cml_scripts              = module.scripts.cml_scripts
+  prod_cidrs_id            = module.prefix_list_prod_v4.prefix_list_id
+  mgmt_cidrs_id            = module.prefix_list_mgmt_v4.prefix_list_id
 }
 
 provider "cml2" {
