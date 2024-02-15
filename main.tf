@@ -84,19 +84,9 @@ module "ec2_instance" {
   target_group_cockpit_arn = module.load_balancer.target_group_cockpit_arn
   lb_private_ip            = module.load_balancer.private_ip
   zone_id                  = data.aws_route53_zone.zone.zone_id
-  cml_scripts              = module.scripts.cml_scripts
   prod_cidrs_id            = module.prefix_list_prod_v4.prefix_list_id
   mgmt_cidrs_id            = module.prefix_list_mgmt_v4.prefix_list_id
-}
-
-provider "cml2" {
-  address = "https://${module.ec2_instance.public_ip}"
-  #address        = "https://{local.lab_fqdn}:443/"
-  username       = local.cfg.app.user
-  password       = module.secrets.conjur_secrets[local.cfg.app.pass]
-  use_cache      = false
-  skip_verify    = true
-  dynamic_config = true
+  cml_scripts              = module.scripts.cml_scripts
 }
 
 module "ready" {
@@ -104,6 +94,7 @@ module "ready" {
   target_group_attachment_id = module.ec2_instance.target_group_attachment_id
 
   depends_on = [
-    module.ec2_instance.public_ip
+    module.ec2_instance.public_ip,
+    module.scripts.cml_scripts
   ]
 }
