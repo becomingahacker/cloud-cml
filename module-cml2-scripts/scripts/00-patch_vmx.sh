@@ -15,6 +15,11 @@
 # Some platforms like Linux, IOSv and IOSv-L2 will still work but others will
 # not and crash!
 
+if [ -c /dev/kvm ]; then
+    echo "KVM is present, no need to patch"
+    exit 0
+fi
+
 echo -n "no-VMX patch..."
 (
 cd /var/local/virl2/.local/lib/python3.8/site-packages
