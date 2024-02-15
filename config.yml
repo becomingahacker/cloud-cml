@@ -67,8 +67,8 @@ aws:
 
   # The EC2 instance type to use.  Use a .metal type for /dev/kvm support.
   #flavor: z1d.metal
-  flavor: c5n.metal
-  #flavor: c5d.xlarge
+  #flavor: c5n.metal
+  flavor: c5d.xlarge
 
   # IAM Role for EC2 host to assume
   profile: CiscoModelingLabs
@@ -84,14 +84,11 @@ secrets:
 app:
   user: admin
   pass: *app_password
-  # need to escape special chars:
-  # pass: '\"!@$%'
   deb: cml2_2.6.1-11_amd64.deb
   # list must have at least ONE element, this is what the dummy is for in case
-  # 00- and 01- are commented out!
+  # the test is empty
   customize:
-    # if not using bare metal:
-    #- 00-patch_vmx.sh
+    - 00-patch_vmx.sh
     # - 01-patty.sh
     - 02-libvirt_default_network.sh
     - 03-training_site.sh
@@ -104,8 +101,8 @@ sys:
 license:
   flavor: CML_Enterprise
   token: *license_token
-  # Unless you have additional nodes, leave this at zero
-  # You can bump this up later on if you need to add more nodes
+  # Unless you have additional nodes, leave this at zero.
+  # You can bump this up later on if you need to add more nodes.
   nodes: 0
 
 # select the ones needed by un-/commenting them. The selected
