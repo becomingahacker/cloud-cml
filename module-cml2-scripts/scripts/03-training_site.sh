@@ -20,12 +20,12 @@ location /training {
   include /etc/nginx/security-headers.conf;
   #include /etc/nginx/csp.conf;
 
-  rewrite ^/training$ /bah-site break;
+  rewrite ^/training$ /bah-foundations-site break;
 
-  proxy_pass              https://cmm-cisco.github.io/bah-site;
+  proxy_pass              https://becomingahacker.github.io/bah-foundations-site;
   proxy_redirect          default;
   proxy_buffering         off;
-  proxy_set_header        Host                    cmm-cisco.github.io;
+  proxy_set_header        Host                    becomingahacker.github.io;
   proxy_set_header        X-Real-IP               $remote_addr;
   proxy_set_header        X-Forwarded-For         $proxy_add_x_forwarded_for;
   proxy_set_header        X-Forwarded-Protocol    $scheme;
