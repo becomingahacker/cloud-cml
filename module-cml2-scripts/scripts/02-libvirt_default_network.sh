@@ -46,7 +46,7 @@ IPV6_PREFIXLEN=`python3 -c "import ipaddress as i;n=i.ip_network(\"${IPV6_PREFIX
 virsh net-define <(cat <<EOF
 <network>
   <name>default</name>
-  <forward mode='nat' dev='ens5'/>
+  <forward mode='nat' dev='${NET_DEVICE}'/>
   <bridge name='virbr0' stp='off' delay='0'/>
   <mac address='52:54:00:bb:cf:de'/>
   <ip address='${IPV4_FIRST}' netmask='${IPV4_NETMASK}'>
