@@ -65,6 +65,11 @@ aws:
   # The S3 bucket where reference platforms are stored, along with scripts to set up CML
   bucket: bah-machine-images
 
+  # TODO cmm - CiscoModelingLabs role must not be able to access this bucket
+  # Must be globally unique and updated in terraform.tf backend config
+  tfstate_bucket: cml-tfstate-bucket
+  tfstate_key: cloud-cml/terraform.tfstate
+
   # The EC2 instance type to use.  Use a .metal type for /dev/kvm support.
   #flavor: z1d.metal
   #flavor: c5n.metal
