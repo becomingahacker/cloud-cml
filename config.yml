@@ -38,13 +38,13 @@ aws:
       - description: CSCO RTP1
         cidr: 173.38.117.64/27 
       - description: CSCO RTP2
-        cidr: 64.102.249.0/2 
+        cidr: 64.102.249.0/27
       - description: CSCO RDCN1
         cidr: 72.163.2.224/27 
       - description: CSCO RCDN2
         cidr: 173.37.200.0/27 
       - description: CSCO ALLN1
-        cidr: 173.36.120.0/2 
+        cidr: 173.36.120.0/28
       - description: CSCO ALLN2
         cidr: 173.36.113.96/27 
 
