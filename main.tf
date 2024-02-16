@@ -95,6 +95,5 @@ module "ready" {
 
   depends_on = [
     module.ec2_instance.public_ip,
-    module.scripts.cml_scripts
   ]
 }

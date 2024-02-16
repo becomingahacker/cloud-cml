@@ -6,7 +6,7 @@
 # All rights reserved.
 #
 
-set -x
+#set -x
 set -e
 
 function base_setup() {
@@ -125,9 +125,6 @@ function cml_configure() {
         -H "accept: application/json" \
         -H "Content-Type: application/json" \
         -d '"'${LICENSE_FLAVOR}'"'
-
-    # we want to see what happens
-    set -x
 
     # licensing steps
     curl -vs -X "POST" \

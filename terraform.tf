@@ -22,10 +22,10 @@ terraform {
 }
 
 provider "cml2" {
-  address        = "https://{local.lab_fqdn}:443"
+  address        = "https://${local.lab_fqdn}:443"
   username       = local.cfg.app.user
   password       = module.secrets.conjur_secrets[local.cfg.app.pass]
   use_cache      = false
-  skip_verify    = true
+  skip_verify    = false
   dynamic_config = true
 }
