@@ -27,32 +27,36 @@ aws:
   # CIDRs for accessing management endpoints such as Cockpit and SSH for the host (tcp/1122)
   mgmt_cidrs:
     v4:
-      - description: "rtp-corp-nat-pool"
-        cidr: 173.38.117.64/26
       - description: "cmm-home-rtr" 
         cidr: 99.69.22.234/32
       - description: "cmm-home-blk" 
         cidr: 23.116.118.232/29
-      - description: "amhurst-home" # 76.182.0.0/17 is the entire block for Spectrum
-        cidr: 76.182.18.161/32
-      - description: "NETBLK-CISCO-GEN-6 for use in San Jose, EMEA, and RTP"
-        cidr: 64.100.0.0/14
-      - description: "NETBLK-CISCO-GEN-6 for use in AsiaPac"
-        cidr: 64.104.0.0/16
-      - description: "CISCO-GEN-8"
-        cidr: 173.36.0.0/14
+      - description: CSCO SJC1	
+        cidr: 128.107.241.160/27
+      - description: CSCO SJC2 
+        cidr: 173.36.240.160/27
+      - description: CSCO RTP1
+        cidr: 173.38.117.64/27 
+      - description: CSCO RTP2
+        cidr: 64.102.249.0/2 
+      - description: CSCO RDCN1
+        cidr: 72.163.2.224/27 
+      - description: CSCO RCDN2
+        cidr: 173.37.200.0/27 
+      - description: CSCO ALLN1
+        cidr: 173.36.120.0/2 
+      - description: CSCO ALLN2
+        cidr: 173.36.113.96/27 
 
   # CIDRs for accessing production (HTTPS, SSH console server tcp/22)
   prod_cidrs:
     v4:
-      - description: "rtp-corp-nat-pool"
-        cidr: 173.38.117.64/26
       - description: "cmm-home-rtr" 
         cidr: 99.69.22.234/32
       - description: "cmm-home-blk" 
         cidr: 23.116.118.232/29
-      - description: "amhurst-home" # 76.182.0.0/17 is the entire block for Spectrum
-        cidr: 76.182.18.161/32
+      - description: "NET-76-182-0-0-1 Charter"
+        cidr: 76.182.0.0/17
       - description: "NCSU 1"
         cidr: 152.1.0.0/16
       - description: "NCSU 2"
