@@ -33,6 +33,8 @@ aws:
         cidr: 99.69.22.234/32
       - description: "cmm-home-blk" 
         cidr: 23.116.118.232/29
+      - description: "amhurst-home" # 76.182.0.0/17 is the entire block for Spectrum
+        cidr: 76.182.18.161/32
       - description: "NETBLK-CISCO-GEN-6 for use in San Jose, EMEA, and RTP"
         cidr: 64.100.0.0/14
       - description: "NETBLK-CISCO-GEN-6 for use in AsiaPac"
@@ -49,6 +51,8 @@ aws:
         cidr: 99.69.22.234/32
       - description: "cmm-home-blk" 
         cidr: 23.116.118.232/29
+      - description: "amhurst-home" # 76.182.0.0/17 is the entire block for Spectrum
+        cidr: 76.182.18.161/32
       - description: "NCSU 1"
         cidr: 152.1.0.0/16
       - description: "NCSU 2"
