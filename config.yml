@@ -47,6 +47,10 @@ aws:
         cidr: 173.36.120.0/28
       - description: CSCO ALLN2
         cidr: 173.36.113.96/27 
+      - description: "NCREN-CIDR3"
+        cidr: 204.84.0.0/15
+      - description: "AT&T SIS-80-4-2012"
+        cidr: 107.192.0.0/11
 
   # CIDRs for accessing production (HTTPS, SSH console server tcp/22)
   prod_cidrs:
@@ -57,12 +61,16 @@ aws:
         cidr: 23.116.118.232/29
       - description: "NET-76-182-0-0-1 Charter"
         cidr: 76.182.0.0/17
+      - description: "AT&T SIS-80-4-2012"
+        cidr: 107.192.0.0/11
       - description: "NCSU 1"
         cidr: 152.1.0.0/16
       - description: "NCSU 2"
         cidr: 152.7.0.0/16
       - description: "NCSU 3"
         cidr: 152.14.0.0/16
+      - description: "NCREN-CIDR3"
+        cidr: 204.84.0.0/15
       - description: "NETBLK-CISCO-GEN-6 for use in San Jose, EMEA, and RTP"
         cidr: 64.100.0.0/14
       - description: "NETBLK-CISCO-GEN-6 for use in AsiaPac"
