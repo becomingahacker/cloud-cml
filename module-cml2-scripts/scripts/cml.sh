@@ -49,6 +49,8 @@ function base_setup() {
     fi
 
     systemctl stop ssh
+    apt-get update
+    apt-get upgrade -y
     apt-get install -y "/provision/${APP_DEB}"
     systemctl start ssh
 

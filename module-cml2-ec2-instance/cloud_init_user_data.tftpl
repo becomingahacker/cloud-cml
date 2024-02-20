@@ -22,6 +22,10 @@ write_files:
     content: ${base64encode(jsonencode(cml_scripts))}
 
 bootcmd:
+  # So this doesn't interfere with provisioning later on...
+  # TODO cmm - apt remove unattended-upgrades in the CML build image?
+  - [ cloud-init-per, once, disable-unattended-upgrades, systemctl, disable, unattended-upgrades.service ]
+  - [ cloud-init-per, once, stop-unattended-upgrades, systemctl, stop, unattended-upgrades.service ]
   - [ cloud-init-per, once, config-aws-region, bash, /provision/configure_aws_region.sh ]
 
 runcmd:

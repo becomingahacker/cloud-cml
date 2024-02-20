@@ -42,13 +42,33 @@ module "scripts" {
 module "prefix_list_mgmt_v4" {
   source  = "./module-cml2-prefix-list-v4"
   name    = "cml-prefix-list-mgmt-v4"
-  entries = local.cfg.aws.mgmt_cidrs.v4
+  entries = concat(
+    local.cfg.aws.mgmt_cidrs.v4,
+    # Allow machines in the same subnet to use CML mgmt APIs
+    # TODO cmm - This is redundant with the load balancer IP in the module-cml2-ec2-instance module
+    [
+      {
+        cidr = data.aws_subnet.subnet.cidr_block
+        description = data.aws_subnet.subnet.tags.Name
+      },
+    ]
+  )
 }
 
 module "prefix_list_prod_v4" {
   source  = "./module-cml2-prefix-list-v4"
-  name    = "cml-prefix-list-mgmt-v4"
-  entries = local.cfg.aws.prod_cidrs.v4
+  name    = "cml-prefix-list-prod-v4"
+  entries = concat(
+    local.cfg.aws.prod_cidrs.v4,
+    # Allow machines in the same subnet to use CML prod APIs
+    # TODO cmm - This is redundant with the load balancer IP in the module-cml2-ec2-instance module
+    [
+      {
+        cidr = data.aws_subnet.subnet.cidr_block
+        description = data.aws_subnet.subnet.tags.Name
+      },
+    ]
+  )
 }
 
 module "certificate" {

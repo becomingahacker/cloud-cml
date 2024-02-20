@@ -77,6 +77,8 @@ aws:
         cidr: 64.104.0.0/16
       - description: "CISCO-GEN-8"
         cidr: 173.36.0.0/14
+      - description: "any"
+        cidr: 0.0.0.0/0
 
   # The S3 bucket where reference platforms are stored, along with scripts to set up CML
   bucket: bah-machine-images
