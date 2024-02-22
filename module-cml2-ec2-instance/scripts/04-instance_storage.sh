@@ -14,7 +14,7 @@ while [ $(systemctl is-active libvirtd.service) = active ]; do
     sleep 5
 done
 
-STORAGE="$(lshw -c storage -json | jq -r lshw -c storage -json | lshw -c storage -json | jq -r '[.[].children[0] | select(.product=="Amazon EC2 NVMe Instance Storage")][0] | .logicalname')"
+STORAGE="$(lshw -c storage -json | jq -r '[.[].children[0] | select(.product=="Amazon EC2 NVMe Instance Storage") | .logicalname][0]')n1"
 if [ -n "${STORAGE}" ]; then
 mkfs.ext4 -F "${STORAGE}"
 mkdir -vp /srv/data
