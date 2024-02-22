@@ -89,8 +89,8 @@ aws:
   tfstate_key: cloud-cml/terraform.tfstate
 
   # The EC2 instance type to use.  Use a .metal type for /dev/kvm support.
-  #flavor: z1d.metal
-  flavor: c5d.metal
+  flavor: m5d.metal
+  #flavor: c5d.metal
   #flavor: c5d.xlarge
 
   # IAM Role for EC2 host to assume
