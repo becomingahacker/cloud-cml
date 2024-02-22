@@ -11,11 +11,13 @@
 
 echo "03-training_site start"
 
+systemctl stop nginx
+
 # Towards the end of the HTTPS CML server configuration...
 sed -ie 's/# ATTENTION THIS/include \/etc\/nginx\/training-site.conf;\n  # ATTENTION THIS/' /etc/nginx/conf.d/controller.conf
 
 # HACK cmm - Hot fix to allow larger file uploads
-sed -i 's/client_max_body_size 16G;/client_max_body_size 64G;/' /etc/nginx/conf.d/controller.conf
+sed -ie 's/client_max_body_size 16G;/client_max_body_size 64G;/' /etc/nginx/conf.d/controller.conf
 
 # TODO cmm - templatize using config?
 cat <<'EOF' > /etc/nginx/training-site.conf
@@ -35,7 +37,8 @@ location /training {
 }
 EOF
 
-systemctl restart nginx
+
+systemctl start nginx
 
 #apt install -y npm
 #
