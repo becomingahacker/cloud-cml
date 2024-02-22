@@ -128,37 +128,3 @@ license:
   # You can bump this up later on if you need to add more nodes.
   nodes: 0
 
-# select the ones needed by un-/commenting them. The selected
-# reference platforms will be copied from the specified bucket
-# and must be available prior to starting an instance.
-refplat:
-  definitions:
-    - alpine
-    - alpine-trex
-    - alpine-wanem
-    #- asav
-    #- cat8000v
-    #- cat9000v-s1
-    #- csr1000v
-    - desktop
-    - iosv
-    - iosvl2
-    #- iosxrv9000
-    #- nxosv9000
-    #- server
-    #- ubuntu
-  images:
-    - alpine-3-16-2-base
-    - alpine-3-16-2-trex
-    - alpine-3-16-2-wanem
-    #- asav-9-18-2
-    #- cat8000v-17-09-01a
-    #- cat9000v-s1-17.10.01prd7
-    #- csr1000v-17-03-06
-    - desktop-3-16-2-xfce
-    - iosv-159-3-m6
-    - iosvl2-2020
-    #- iosxrv9000-7-7-1
-    #- nxosv9300-10-3-1-f
-    #- server-tcl-13-1
-    #- ubuntu-22-04-20221028
