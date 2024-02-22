@@ -6,58 +6,12 @@
 # All rights reserved.
 #
 
-#set -x
+set -x
 set -e
 
-function base_setup() {
-    # current location of the bucket w/ software and images
-    AWS_DEFAULT_REGION="${AWS_REGION}"
-    APT_OPTS="-o Dpkg::Options::=--force-confmiss -o Dpkg::Options::=--force-confnew"
-    APT_OPTS+=" -o DPkg::Progress-Fancy=0 -o APT::Color=0"
-    DEBIAN_FRONTEND=noninteractive
-    export APT_OPTS DEBIAN_FRONTEND AWS_DEFAULT_REGION
-
-    # copy debian package from bucket into our instance
-    aws s3 cp --no-progress "s3://${AWS_BUCKET}/${APP_DEB}" /provision/
-
-    # copy node definitions and images to the instance
-    VLLI=/var/lib/libvirt/images
-    NDEF=node-definitions
-    IDEF=virl-base-images
-    mkdir -p $VLLI/$NDEF
-
-    # copy all node definitions as defined in the provisioned config
-    if [ $(jq </provision/refplat '.definitions|length') -gt 0 ]; then
-        elems=$(jq </provision/refplat -rc '.definitions|join(" ")')
-        for item in $elems; do
-            aws s3 cp --no-progress "s3://${AWS_BUCKET}/refplat/$NDEF/$item.yaml" "$VLLI/$NDEF/"
-        done
-    fi
-
-    # copy all image definitions as defined in the provisioned config
-    if [ $(jq </provision/refplat '.images|length') -gt 0 ]; then
-        elems=$(jq </provision/refplat -rc '.images|join(" ")')
-        for item in $elems; do
-            mkdir -p $VLLI/$IDEF/$item
-            aws s3 cp --no-progress --recursive "s3://${AWS_BUCKET}/refplat/$IDEF/$item/" "$VLLI/$IDEF/$item/"
-        done
-    fi
-
-    # if there's no images at this point, copy what's available in the bucket
-    if [ $(find $VLLI -type f | wc -l) -eq 0 ]; then
-        aws s3 cp --no-progress --recursive s3://${AWS_BUCKET}/refplat/ $VLLI/
-    fi
-
-    systemctl stop ssh
-    apt-get update
-    apt-get upgrade -y
-    apt-get install -y "/provision/${APP_DEB}"
-    systemctl start ssh
+function cml_configure() {
 
     FILELIST=$(find /provision/ -type f -regextype posix-egrep -regex '/provision/[0-9]{2}-.*' | sort -u | grep -v '99-dummy.sh')
-    # make the bucket available for the scripts
-    BUCKET=${AWS_BUCKET}
-    export BUCKET
     if [ -n "$FILELIST" ]; then
         systemctl stop virl2.target
         while [ $(systemctl is-active virl2-controller.service) = active ]; do
@@ -73,13 +27,6 @@ function base_setup() {
         systemctl restart virl2.target
     fi
 
-    # For troubleshooting. To allow console access on AWS, the root user needs a
-    # password. Note: not all instance types / flavors provide a serial console!
-    # echo "root:secret-password-here" | /usr/sbin/chpasswd
-
-}
-
-function cml_configure() {
     API="http://ip6-localhost:8001/api/v0"
 
     # create system user
@@ -103,7 +50,9 @@ function cml_configure() {
     done
 
     # get token
-    PASS=$(cat /etc/machine-id)
+    echo "This Machine ID: $(cat /etc/machine-id)"
+    echo "Build Machine ID: $(cat /provision/build-machine-id)"
+    PASS="$(cat /provision/build-machine-id)"
     TOKEN=$(echo '{"username":"cml2","password":"'$PASS'"}' \ |
         curl -s -d@- $API/authenticate | jq -r)
     [ "$TOKEN" != "Authentication failed!" ] || { echo $TOKEN; exit 1; }
@@ -153,13 +102,4 @@ function cml_configure() {
 cd $(dirname "$0")
 source config.sh
 
-# only run the base setup when there's a provision directory
-# both with Terraform and with Packer but not when deploying an AMI
-if [ -d /provision ]; then
-    base_setup
-fi
-
-# only do a configure when this is not run within Packer / AMI building
-if [ ! -f /tmp/PACKER_BUILD ]; then
-    cml_configure
-fi
+cml_configure

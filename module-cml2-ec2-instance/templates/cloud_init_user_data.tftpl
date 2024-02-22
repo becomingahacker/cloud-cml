@@ -1,0 +1,31 @@
+package_update: false
+package_upgrade: false
+
+hostname: ${cfg.hostname}
+manage_etc_hosts: true
+
+write_files:
+%{ for script, content in cml_customize_scripts ~}
+  - path: /provision/${script}
+    encoding: b64
+    owner: root:root
+%{ if contains(["cml.sh","del.sh"], script) ~}
+    permissions: '0755'
+%{ else ~}
+    permissions: '0600'
+%{ endif ~}
+    content: ${base64encode(content)}
+%{ endfor ~}
+  - path: /provision/config.sh
+    encoding: b64
+    owner: root:root
+    permissions: '0600'
+    content: ${base64encode(cml_config_script)}
+
+bootcmd:
+  - echo in bootcmd
+  - [ cloud-init-per, once, config-aws-region, bash, /provision/configure_aws_region.sh ]
+
+runcmd:
+  - echo in runcmd
+  - [ /provision/cml.sh ]

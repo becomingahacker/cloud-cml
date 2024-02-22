@@ -14,11 +14,13 @@ provider "aws" {
 
 locals {
   cfg = yamldecode(var.cfg)
-  cml_config_script = templatefile("${path.module}/config.sh.tftpl",
+  cml_config_script = templatefile("${path.module}/templates/config.sh.tftpl",
     {
       cfg = local.cfg
     }
   )
+  cml_customize_scripts = { for file in concat(local.cfg.app.customize, ["cml.sh", "del.sh"]) :
+  file => file("${path.module}/scripts/${file}") }
   use_patty = length(regexall("patty\\.sh", join(" ", local.cfg.app.customize))) > 0
   cml_ingress = [
     {
@@ -225,70 +227,18 @@ resource "aws_network_interface" "primary" {
   }
 }
 
-data "cloudinit_config" "cloud_init_user_data" {
-  gzip          = false
-  base64_encode = false
-
-  part {
-    content_type = "text/cloud-config"
-    content = templatefile("${path.module}/cloud_init_user_data.tftpl",
-      {
-        cfg               = local.cfg
-        secrets           = var.secrets
-        cml_scripts       = var.cml_scripts
-        cml_config_script = local.cml_config_script
-      }
-    )
-  }
-}
-
-resource "aws_instance" "cml" {
-  instance_type        = var.instance_type
-  ami                  = data.aws_ami.cloud_cml_recipe.id
-  iam_instance_profile = var.iam_instance_profile
-  key_name             = var.key_name
-
-  network_interface {
-    network_interface_id = aws_network_interface.primary.id
-    device_index         = 0
-  }
-
-  metadata_options {
-    http_tokens = "required"
-  }
-
-  root_block_device {
-    volume_size = var.disk_size
-  }
-
-  user_data = data.cloudinit_config.cloud_init_user_data.rendered
-
-  tags = {
-    Name    = local.cfg.hostname
-    Project = "cloud-cml"
-  }
-}
-
-data "aws_ami" "cloud_cml_recipe" {
+data "aws_ami" "cloud_cml_image" {
   most_recent = true
 
   filter {
     name   = "name"
-    values = ["cloud-cml-recipe*"]
+    values = ["cloud-cml-*"]
   }
 
   filter {
     name   = "virtualization-type"
     values = ["hvm"]
   }
-
-  filter {
-    name   = "tag:Project"
-    values = ["cloud-cml"]
-  }
-
-  # TODO cmm - make this configurable
-  owners = ["181171279649"] # asig-bah
 }
 
 resource "aws_lb_target_group_attachment" "cml2" {
@@ -301,6 +251,51 @@ resource "aws_lb_target_group_attachment" "cml2_cockpit" {
   target_group_arn = var.target_group_cockpit_arn
   target_id        = aws_instance.cml.id
   port             = 9090
+}
+
+data "cloudinit_config" "cloud_init_user_data" {
+  gzip          = true
+  base64_encode = true
+
+  part {
+    content_type = "text/cloud-config"
+    content = templatefile("${path.module}/templates/cloud_init_user_data.tftpl",
+      {
+        cfg                   = local.cfg
+        secrets               = var.secrets
+        cml_config_script     = local.cml_config_script
+        cml_customize_scripts = local.cml_customize_scripts
+      }
+    )
+  }
+}
+
+resource "aws_instance" "cml" {
+  instance_type        = var.instance_type
+  ami                  = data.aws_ami.cloud_cml_image.id
+  iam_instance_profile = var.iam_instance_profile
+  key_name             = var.key_name
+
+  network_interface {
+    network_interface_id = aws_network_interface.primary.id
+    device_index         = 0
+  }
+
+  metadata_options {
+    http_tokens = "required"
+    # Disallow the use of the IMDS from VMs running on the instance
+    http_put_response_hop_limit = 1
+  }
+
+  root_block_device {
+    volume_size = var.disk_size
+  }
+
+  user_data = data.cloudinit_config.cloud_init_user_data.rendered
+
+  tags = {
+    Name = local.cfg.hostname
+  }
 }
 
 resource "aws_route53_record" "cml2" {

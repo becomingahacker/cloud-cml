@@ -63,11 +63,6 @@ variable "zone_id" {
   description = "Route53 zone ID to use for instance IP"
 }
 
-variable "cml_scripts" {
-  type        = map(string)
-  description = "scripts to be executed on the instance"
-}
-
 variable "mgmt_cidrs_id" {
   type        = string
   description = "Managed prefix list ID for management CIDRs"
