@@ -115,6 +115,7 @@ app:
     # - 01-patty.sh
     - 02-libvirt_default_network.sh
     - 03-training_site.sh
+    - 04-instance_storage.sh
     # - 99-dummy.sh
 
 sys:
@@ -127,4 +128,3 @@ license:
   # Unless you have additional nodes, leave this at zero.
   # You can bump this up later on if you need to add more nodes.
   nodes: 0
-
