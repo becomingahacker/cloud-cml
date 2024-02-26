@@ -47,8 +47,8 @@ aws:
         cidr: 173.36.120.0/28
       - description: CSCO ALLN2
         cidr: 173.36.113.96/27 
-      - description: "NCREN-CIDR3"
-        cidr: 204.84.0.0/15
+      #- description: "NCREN-CIDR3"
+      #  cidr: 204.84.0.0/15
       - description: "AT&T SIS-80-4-2012"
         cidr: 107.192.0.0/11
 
@@ -63,22 +63,22 @@ aws:
         cidr: 76.182.0.0/17
       - description: "AT&T SIS-80-4-2012"
         cidr: 107.192.0.0/11
-      - description: "NCSU 1"
-        cidr: 152.1.0.0/16
-      - description: "NCSU 2"
-        cidr: 152.7.0.0/16
-      - description: "NCSU 3"
-        cidr: 152.14.0.0/16
-      - description: "NCREN-CIDR3"
-        cidr: 204.84.0.0/15
+      #- description: "NCSU 1"
+      #  cidr: 152.1.0.0/16
+      #- description: "NCSU 2"
+      #  cidr: 152.7.0.0/16
+      #- description: "NCSU 3"
+      #  cidr: 152.14.0.0/16
+      #- description: "NCREN-CIDR3"
+      #  cidr: 204.84.0.0/15
       - description: "NETBLK-CISCO-GEN-6 for use in San Jose, EMEA, and RTP"
         cidr: 64.100.0.0/14
       - description: "NETBLK-CISCO-GEN-6 for use in AsiaPac"
         cidr: 64.104.0.0/16
       - description: "CISCO-GEN-8"
         cidr: 173.36.0.0/14
-      - description: "any"
-        cidr: 0.0.0.0/0
+      #- description: "any"
+      #  cidr: 0.0.0.0/0
 
   # The S3 bucket where reference platforms are stored, along with scripts to set up CML
   bucket: bah-machine-images
@@ -89,9 +89,9 @@ aws:
   tfstate_key: cloud-cml/terraform.tfstate
 
   # The EC2 instance type to use.  Use a .metal type for /dev/kvm support.
-  flavor: m5d.metal
+  #flavor: m5d.metal
   #flavor: c5d.metal
-  #flavor: c5d.xlarge
+  flavor: c5d.xlarge
 
   # IAM Role for EC2 host to assume
   profile: CiscoModelingLabs
