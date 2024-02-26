@@ -91,7 +91,7 @@ aws:
   # The EC2 instance type to use.  Use a .metal type for /dev/kvm support.
   #flavor: m5d.metal
   #flavor: c5d.metal
-  flavor: c5d.xlarge
+  flavor: c5d.2xlarge
 
   # IAM Role for EC2 host to assume
   profile: CiscoModelingLabs
