@@ -105,9 +105,9 @@ secrets:
   - &license_token sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/license_token
 
 app:
+  version: 0.1.1
   user: admin
   pass: *app_password
-  deb: cml2_2.6.1-11_amd64.deb
   # list must have at least ONE element, this is what the dummy is for in case
   # the test is empty
   customize:
