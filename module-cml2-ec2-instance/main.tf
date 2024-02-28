@@ -236,6 +236,11 @@ data "aws_ami" "cloud_cml_image" {
   }
 
   filter {
+    name   = "tag:Version"
+    values = var.build_versions
+  }
+
+  filter {
     name   = "virtualization-type"
     values = ["hvm"]
   }

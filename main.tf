@@ -108,6 +108,7 @@ module "ec2_instance" {
   zone_id                  = data.aws_route53_zone.zone.zone_id
   prod_cidrs_id            = module.prefix_list_prod_v4.prefix_list_id
   mgmt_cidrs_id            = module.prefix_list_mgmt_v4.prefix_list_id
+  build_versions           = [local.cfg.app.version]
 }
 
 module "ready" {

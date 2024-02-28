@@ -5,7 +5,6 @@
 #
 AWS_REGION='${cfg.aws.region}'
 AWS_BUCKET='${cfg.aws.bucket}'
-APP_DEB='${cfg.app.deb}'
 APP_USER='${cfg.app.user}'
 APP_PASSWD_SECRET='${cfg.app.pass}'
 APP_PASSWD="$(aws secretsmanager get-secret-value --secret-id $${APP_PASSWD_SECRET} | jq -r .SecretString)"

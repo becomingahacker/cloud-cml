@@ -72,3 +72,8 @@ variable "prod_cidrs_id" {
   type        = string
   description = "Managed prefix list ID for production CIDRs"
 }
+
+variable "build_versions" {
+  type        = list(string)
+  description = "CML build versions"
+}
