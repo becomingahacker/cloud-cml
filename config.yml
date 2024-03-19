@@ -105,7 +105,7 @@ secrets:
   - &license_token sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/license_token
 
 app:
-  version: 0.1.1
+  version: 0.1.4
   user: admin
   pass: *app_password
   # list must have at least ONE element, this is what the dummy is for in case
