@@ -42,3 +42,4 @@ variable "azure_tenant_id" {
   default     = ""
 }
 
+# GCP related vars are in config.yml

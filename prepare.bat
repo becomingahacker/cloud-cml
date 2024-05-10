@@ -40,6 +40,15 @@ if errorlevel 1 (
     copy azure-off.t-f azure.tf
 )
 
+call :ask_yes_no "Cloud - Enable Google Cloud?"
+if errorlevel 1 (
+    echo Enabling Google Cloud.
+    copy gcp-on.t-f gcp.tf
+) else (
+    echo Disabling Google Cloud.
+    copy gcp-off.t-f gcp.tf
+)
+
 cd ..\..
 cd modules\secrets
 

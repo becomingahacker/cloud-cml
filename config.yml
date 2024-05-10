@@ -35,6 +35,19 @@ azure:
   storage_account: storage-account-name
   container_name: container-name
 
+gcp:
+  # Path to JSON-formatted service account key file.  Not required if using
+  # gcloud auth application-default login  Leave empty in this case.
+  credentials:
+  project: my-project-id
+  region: us-east1
+  zone: us-east1-b
+  bucket: bucket-name-goes-here
+  machine_type: c3-standard-4-lssd
+  # <user>:<ssh public key>
+  ssh_key: "ubuntu:ssh-rsa AAAAB3Nza..."
+  load_balancer_fqdn: 
+
 common:
   disk_size: 64
   controller_hostname: cml-controller

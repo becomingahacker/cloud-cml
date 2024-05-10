@@ -7,8 +7,8 @@
 #
 
 # :%!shfmt -ci -i 4 -
-# set -x
-# set -e
+set -x
+set -e
 
 source /provision/common.sh
 source /provision/copyfile.sh
@@ -23,6 +23,10 @@ function setup_pre_azure() {
     curl -LO https://aka.ms/downloadazcopy-v10-linux
     tar xvf down* --strip-components=1 -C /usr/local/bin
     chmod a+x /usr/local/bin/azcopy
+}
+
+function setup_pre_gcp() {
+    return
 }
 
 function base_setup() {
@@ -64,10 +68,14 @@ function base_setup() {
     tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
     systemctl stop ssh
     apt-get install -y /tmp/*.deb
-    # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
-    /provision/interface_fix.py
-    systemctl restart network-manager
-    netplan apply
+    # TODO cmm - FIXME
+    #strace -T -f -e trace=%process apt-get install -y /tmp/*.deb
+    if [ -f /etc/netplan/50-cloud-init.yaml ]; then
+        # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
+        /provision/interface_fix.py
+        systemctl restart network-manager
+        netplan apply
+    fi
     # Fix for the headless setup (tty remove as the cloud VM has none)
     sed -i '/^Standard/ s/^/#/' /lib/systemd/system/virl2-initial-setup.service
     touch /etc/.virl2_unconfigured
@@ -133,7 +141,7 @@ function base_setup() {
 function cml_configure() {
     API="http://ip6-localhost:8001/api/v0"
 
-    clouduser="ubuntu"
+    clouduser="$(cloud-init query -f '{{ system_info.default_user.name }}')"
     if [[ -d /home/${CFG_SYS_USER}/.ssh ]]; then
         # Directory exists - Move individual files within .ssh
         mv /home/$clouduser/.ssh/* /home/${CFG_SYS_USER}/.ssh/
@@ -169,8 +177,22 @@ function cml_configure() {
     # via a small Python script
 
     # Acquire a token
-    TOKEN=$(echo '{"username":"'${CFG_APP_USER}'","password":"'${CFG_APP_PASS}'"}' \  |
-        curl -s -d@- $API/authenticate | jq -r)
+    attempts=5
+    while [ $attempts -gt 0 ]; do
+        sleep 5
+        TOKEN=$(echo '{"username":"'${CFG_APP_USER}'","password":"'${CFG_APP_PASS}'"}' \  |
+            curl -s -d@- $API/authenticate | jq -r)
+        if [ "$TOKEN" != "Authentication failed!" ]; then
+            break
+        fi
+        echo "no token, trying again ($attempts)"
+        ((attempts--))
+    done
+
+    if [ $attempts -eq 0 ]; then
+        echo "A token was never received... something went wrong!"
+        exit 1
+    fi
 
     # This is still local, everything below talks to GCH licensing servers
     curl -s -X "PUT" \
@@ -242,7 +264,8 @@ echo "### Provisioning via cml.sh starts"
 # AWS specific (?):
 # For troubleshooting. To allow console access on AWS, the root user needs a
 # password. Note: not all instance types / flavors provide a serial console!
-# echo "root:secret-password-here" | /usr/sbin/chpasswd
+# TODO cmm - FIXME
+echo "root:secret-password-here" | /usr/sbin/chpasswd
 
 # Ensure non-interactive Debian package installation
 APT_OPTS="-o Dpkg::Options::=--force-confmiss -o Dpkg::Options::=--force-confnew"
@@ -257,6 +280,9 @@ case $CFG_TARGET in
         ;;
     azure)
         setup_pre_azure
+        ;;
+    gcp)
+        setup_pre_gcp
         ;;
     *)
         echo "unknown target!"
