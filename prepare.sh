@@ -45,6 +45,15 @@ else
     rm azure.tf
     ln -s azure-off.t-f azure.tf
 fi
+if ask_yes_no "Cloud - Enable Google Cloud?"; then
+    echo "Enabling Google Cloud."
+    rm gcp.tf
+    ln -s gcp-on.t-f gcp.tf
+else
+    echo "Disabling Google Cloud."
+    rm gcp.tf
+    ln -s gcp-off.t-f gcp.tf
+fi
 
 cd ../..
 cd modules/secrets

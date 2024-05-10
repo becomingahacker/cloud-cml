@@ -45,3 +45,5 @@ variable "tenant_id" {
   description = "Azure tenant ID"
   default     = "notset"
 }
+
+# GCP related vars are in config.yml

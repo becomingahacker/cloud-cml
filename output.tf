@@ -9,7 +9,7 @@ output "cml2info" {
     "address" : module.deploy.public_ip
     "del" : nonsensitive("ssh -p1122 ${local.cfg.secrets.sys.username}@${module.deploy.public_ip} /provision/del.sh")
     "url" : "https://${module.deploy.public_ip}"
-    "version" : module.ready.state.version
+    #"version" : module.ready.state.version
   }
 }
 

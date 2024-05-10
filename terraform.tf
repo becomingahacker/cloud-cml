@@ -12,4 +12,10 @@ terraform {
     }
   }
   required_version = ">= 1.1.0"
+
+  # TODO cmm - remove this when we have a better solution
+  backend "gcs" {
+    bucket = "bah-cml-terraform-state"
+    prefix = "cloud-cml-terraform/state"
+  }
 }

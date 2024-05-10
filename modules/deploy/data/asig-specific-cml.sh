@@ -7,6 +7,7 @@
 #
 
 # :%!shfmt -ci -i 4 -
+# TODO cmm - comment out, as this logs tokens
 set -x
 set -e
 
@@ -31,49 +32,78 @@ function setup_pre_gcp() {
 
 function base_setup() {
 
-    # Check if this device is a controller
-    if is_controller; then
-        # copy node definitions and images to the instance
-        VLLI=/var/lib/libvirt/images
-        NDEF=node-definitions
-        IDEF=virl-base-images
-        mkdir -p $VLLI/$NDEF
+    ## Check if this device is a controller
+    #if is_controller; then
+    #    # copy node definitions and images to the instance
+    #    VLLI=/var/lib/libvirt/images
+    #    NDEF=node-definitions
+    #    IDEF=virl-base-images
+    #    mkdir -p $VLLI/$NDEF
 
-        # copy all node definitions as defined in the provisioned config
-        if [ $(jq </provision/refplat '.definitions|length') -gt 0 ]; then
-            elems=$(jq </provision/refplat -rc '.definitions|join(" ")')
-            for item in $elems; do
-                copyfile refplat/$NDEF/$item.yaml $VLLI/$NDEF/
-            done
-        fi
+    #    # copy all node definitions as defined in the provisioned config
+    #    if [ $(jq </provision/refplat '.definitions|length') -gt 0 ]; then
+    #        elems=$(jq </provision/refplat -rc '.definitions|join(" ")')
+    #        for item in $elems; do
+    #            copyfile refplat/$NDEF/$item.yaml $VLLI/$NDEF/
+    #        done
+    #    fi
 
-        # copy all image definitions as defined in the provisioned config
-        if [ $(jq </provision/refplat '.images|length') -gt 0 ]; then
-            elems=$(jq </provision/refplat -rc '.images|join(" ")')
-            for item in $elems; do
-                mkdir -p $VLLI/$IDEF/$item
-                copyfile refplat/$IDEF/$item/ $VLLI/$IDEF $item --recursive
-            done
-        fi
+    #    # copy all image definitions as defined in the provisioned config
+    #    if [ $(jq </provision/refplat '.images|length') -gt 0 ]; then
+    #        elems=$(jq </provision/refplat -rc '.images|join(" ")')
+    #        for item in $elems; do
+    #            mkdir -p $VLLI/$IDEF/$item
+    #            copyfile refplat/$IDEF/$item/ $VLLI/$IDEF $item --recursive
+    #        done
+    #    fi
 
-        # if there's no images at this point, copy what's available in the defined
-        # cloud storage container
-        if [ $(find $VLLI -type f | wc -l) -eq 0 ]; then
-            copyfile refplat/ $VLLI/ "" --recursive
-        fi
-    fi
+    #    # if there's no images at this point, copy what's available in the defined
+    #    # cloud storage container
+    #    if [ $(find $VLLI -type f | wc -l) -eq 0 ]; then
+    #        copyfile refplat/ $VLLI/ "" --recursive
+    #    fi
+    #fi
 
-    # copy CML distribution package from cloud storage into our instance, unpack & install
-    copyfile ${CFG_APP_SOFTWARE} /provision/
-    tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
-    systemctl stop ssh
-    apt-get install -y /tmp/*.deb
-    if [ -f /etc/netplan/50-cloud-init.yaml ]; then
-        # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
-        /provision/interface_fix.py
-        systemctl restart network-manager
-        netplan apply
-    fi
+    ## copy CML distribution package from cloud storage into our instance, unpack & install
+    #copyfile ${CFG_APP_SOFTWARE} /provision/
+    #tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
+    #systemctl stop ssh
+    #apt-get install -y /tmp/*.deb
+    #if [ -f /etc/netplan/50-cloud-init.yaml ]; then
+    #    # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
+    #    /provision/interface_fix.py
+    #    systemctl restart network-manager
+    #    netplan apply
+    #fi
+
+    if ! is_controller; then
+        # Generate a unique compute UUID before installing, otherwise they're the same
+        sed -i -e "s/COMPUTE_ID=\".*$/COMPUTE_ID=\"$(uuidgen)\"/" /etc/default/virl2
+        
+        # Update hostname in the virl2-base-config.yml, otherwise it's localhost
+        systemctl stop NetworkManager
+        hostnamectl set-hostname $(cloud-init query local_hostname)
+        sed -i -e 's/^"hostname":.*$/"hostname": "'$(hostname -s)'"/' /etc/virl2-base-config.yml
+        systemctl start NetworkManager
+        cat /etc/virl2-base-config.yml
+
+        # Fix BGP router ID, otherwise it uses the virbr0 IP, which is the same on all compute nodes
+        BGP_ROUTER_ID="$(ip -j route show default | jq -r .[0].prefsrc)"
+        printf "router bgp 65001\nbgp router-id ${BGP_ROUTER_ID}\nend" >> /etc/frr/frr-base.conf 
+        vtysh -f /etc/frr/frr-base.conf
+        vtysh -c "copy running-config startup-config"
+        systemctl restart frr
+    else
+        # Otherwise just load the base config
+        vtysh -f /etc/frr/frr-base.conf
+        vtysh -c "copy running-config startup-config"
+
+        # Start routed external network (100.64.1.0/24)
+        virsh net-define /provision/net-bah-external.xml
+        virsh net-autostart bah-external
+        virsh net-start bah-external
+    fi        
+
     # Fix for the headless setup (tty remove as the cloud VM has none)
     sed -i '/^Standard/ s/^/#/' /lib/systemd/system/virl2-initial-setup.service
     touch /etc/.virl2_unconfigured
@@ -109,7 +139,7 @@ function base_setup() {
     systemctl enable --now ssh.service
 
     # clean up software .pkg / .deb packages
-    rm -f /provision/*.pkg /provision/*.deb /tmp/*.deb
+    #rm -f /provision/*.pkg /provision/*.deb /tmp/*.deb
 
     # disable bridge setup in the cloud instance (controller and computes)
     # (this is a no-op with 2.7.1 as it skips bridge creation entirely)
@@ -174,7 +204,34 @@ function cml_configure() {
     # TODO: the licensing should use the PCL -- it's there, and it can do it
     # via a small Python script
 
+    # HACK cmm - Set the initial admin password to the saved machine id
+    PASS="$(cat /provision/saved-machine-id)"
     # Acquire a token
+    attempts=5
+    while [ $attempts -gt 0 ]; do
+        sleep 5
+        TOKEN=$(echo '{"username":"cml2","password":"'${PASS}'"}' \  |
+            curl -s -d@- $API/authenticate | jq -r)
+        if [ "$TOKEN" != "Authentication failed!" ]; then
+            break
+        fi
+        echo "no token, trying again ($attempts)"
+        ((attempts--))
+    done
+    if [ $attempts -eq 0 ]; then
+        echo "A token was never received... something went wrong!"
+        exit 1
+    fi
+
+    # change to provided name and password
+    curl -s -X "PATCH" \
+        "$API/users/00000000-0000-4000-a000-000000000000" \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "accept: application/json" \
+        -H "Content-Type: application/json" \
+        -d '{"username":"'${CFG_APP_USER}'","password":{"new_password":"'${CFG_APP_PASS}'","old_password":"'${PASS}'"}}'
+
+    # Acquire a new token
     attempts=5
     while [ $attempts -gt 0 ]; do
         sleep 5
