@@ -68,8 +68,6 @@ function base_setup() {
     tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
     systemctl stop ssh
     apt-get install -y /tmp/*.deb
-    # TODO cmm - FIXME
-    #strace -T -f -e trace=%process apt-get install -y /tmp/*.deb
     if [ -f /etc/netplan/50-cloud-init.yaml ]; then
         # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
         /provision/interface_fix.py

@@ -35,15 +35,16 @@ locals {
         password = var.options.cfg.secrets.sys.secret
       }
     }
-    #cluster_interface   = "cluster"
-    # Skip creating the cluster interface, as we'll do it ourselves
-    cluster_interface   = ""
+    # HACK cmm - This must be set for NFS to work
+    cluster_interface   = "cluster"
     compute_secret      = var.options.cfg.secrets.cluster.secret
     controller_name     = local.controller_hostname
     copy_iso_to_disk    = false
     interactive         = false
     is_cluster          = var.options.cfg.cluster.enable_cluster
     is_configured       = false
+    # HACK cmm - This must be set to do controller steps in virl2-initial-setup.py
+    primary_interface   = "ens4"
     ssh_server          = true
     use_ipv4_dhcp       = true
     skip_primary_bridge = true
@@ -144,6 +145,7 @@ locals {
         [Match]
         Name=ens4
         [Network]
+        # Both v4 and v6
         DHCP=yes
         LLMNR=no
         LinkLocalAddressing=ipv6
@@ -236,8 +238,9 @@ locals {
         VLAN=1
       EOF
     },
+    # Force all interfaces unmanaged by NetworkManager
     {
-      path        = "/etc/NetworkManager/conf.d/10-unmanaged.conf"
+      path        = "/etc/NetworkManager/conf.d/11-unmanaged.conf"
       owner       = "root:root"
       permissions = "0644"
       content     = <<-EOF
@@ -290,15 +293,15 @@ locals {
     "vtysh -c 'copy running-config startup-config'",
 
     # Install cml 
-    # TODO cmm - FIXME
-    # "/provision/cml.sh && touch /run/reboot || echo 'CML provisioning failed.  Not rebooting'", 
-    # Remove cluster interface from NetworkManager, placed by CML.  This will be handled by systemd-networkd instead.
-    #"rm /etc/NetworkManager/system-connections/*",
-    #"nmcli device delete cluster || true",
+    "/provision/cml.sh && touch /run/reboot || echo 'CML provisioning failed.  Not rebooting'", 
+    # Remove primary interface from NetworkManager, placed by
+    # virl2-initial-setup.py.  This will be handled by systemd-networkd instead.
+    "rm /etc/NetworkManager/system-connections/* || true",
+    "systemctl restart NetworkManager",
     # Let the systemd-networkd configuration take effect again 
-    #"networkctl reload",
+    "networkctl reload",
     # TODO cmm - fix firewalld config 
-    #"systemctl disable firewalld",
+    "systemctl disable firewalld",
   ]
 
   cloud_config_template = {
