@@ -7,10 +7,6 @@
 locals {
   controller_hostname = var.options.cfg.common.controller_hostname
   num_computes        = var.options.cfg.cluster.enable_cluster ? var.options.cfg.cluster.number_of_compute_nodes : 0
-  compute_hostnames = [
-    for i in range(1, var.options.cfg.cluster.number_of_compute_nodes + 1) :
-    format("%s-%d", var.options.cfg.cluster.compute_hostname_prefix, i)
-  ]
 
   # Late binding required as the token is only known within the module.
   # (Azure specific)
@@ -57,13 +53,13 @@ locals {
   })
 
   cml_config_compute = merge(local.cml_config_template, {
-    # TODO cmm - fix this
+    # Use the hostname provided by the IMDS
     hostname      = ""
     is_controller = false
     is_compute    = true
   })
 
-  cloud_config_write_files_template = concat([
+  cloud_init_config_write_files_template = concat([
     {
       path        = "/provision/refplat"
       owner       = "root:root"
@@ -251,13 +247,13 @@ locals {
     ]
   )
 
-  cloud_config_packages_template = [
+  cloud_init_config_packages_template = [
     "curl",
     "jq",
     "frr",
   ]
 
-  cloud_config_runcmd_template = [
+  cloud_init_config_runcmd_template = [
     # HACK cmm - Messing with networks on install after cloud-init is running is full
     # of bugs and race conditions.  I don't recommend it, but we have to do it for now
     # so BGP EVPN VXLAN works.
@@ -285,20 +281,39 @@ locals {
     "vtysh -f /etc/frr/frr-base.conf",
     # Save FRR configuration
     "vtysh -c 'copy running-config startup-config'",
-
-    # Install cml 
-    "/provision/cml.sh && touch /run/reboot || echo 'CML provisioning failed.  Not rebooting'",
-    # Remove primary interface from NetworkManager, placed by
-    # virl2-initial-setup.py.  This will be handled by systemd-networkd instead.
-    "rm /etc/NetworkManager/system-connections/* || true",
-    "systemctl restart NetworkManager",
-    # Let the systemd-networkd configuration take effect again 
-    "networkctl reload",
-    # TODO cmm - fix firewalld config 
-    "systemctl disable firewalld",
   ]
 
-  cloud_config_template = {
+  cloud_init_config_runcmd_controller = concat(local.cloud_init_config_runcmd_template,
+    [
+      # Install cml
+      "/provision/cml.sh && touch /run/reboot || echo 'CML provisioning failed.  Not rebooting'",
+      # Remove primary interface from NetworkManager, placed by
+      # virl2-initial-setup.py.  This will be handled by systemd-networkd instead.
+      "rm /etc/NetworkManager/system-connections/* || true",
+      "systemctl restart NetworkManager",
+      # Let the systemd-networkd configuration take effect again 
+      "networkctl reload",
+      # TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
+      "systemctl disable firewalld",
+    ]
+  )
+
+  cloud_init_config_runcmd_compute = concat(local.cloud_init_config_runcmd_template,
+    [
+      # Install cml, but do not reboot
+      "/provision/cml.sh || echo 'CML provisioning failed.'",
+      # Remove primary interface from NetworkManager, placed by
+      # virl2-initial-setup.py.  This will be handled by systemd-networkd instead.
+      "rm /etc/NetworkManager/system-connections/* || true",
+      "systemctl restart NetworkManager",
+      # Let the systemd-networkd configuration take effect again 
+      "networkctl reload",
+      # TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
+      "systemctl disable firewalld",
+    ]
+  )
+
+  cloud_init_config_template = {
     package_update  = true
     package_upgrade = true
 
@@ -312,12 +327,12 @@ locals {
 
   network_interface_path_controller = "pci-0000:00:04.0"
 
-  cloud_config_controller = merge(local.cloud_config_template, {
+  cloud_init_config_controller = merge(local.cloud_init_config_template, {
     hostname = local.controller_hostname
 
-    packages = local.cloud_config_packages_template
+    packages = local.cloud_init_config_packages_template
 
-    write_files = concat(local.cloud_config_write_files_template, [
+    write_files = concat(local.cloud_init_config_write_files_template, [
       {
         path        = "/etc/systemd/network/10-ens4.link"
         owner       = "root:root"
@@ -332,10 +347,9 @@ locals {
         EOF
       },
       {
-        path  = "/etc/virl2-base-config.yml"
-        owner = "root:root"
-        # TODO cmm - Does this keep setup from overwriting?
-        permissions = "0400"
+        path        = "/etc/virl2-base-config.yml"
+        owner       = "root:root"
+        permissions = "0640"
         content     = yamlencode(local.cml_config_controller)
       },
       {
@@ -362,18 +376,18 @@ locals {
       },
     ])
 
-    runcmd = local.cloud_config_runcmd_template
+    runcmd = local.cloud_init_config_runcmd_controller
   })
 
   network_interface_path_compute = "pci-0000:00:04.0"
 
-  cloud_config_compute = merge(local.cloud_config_template, {
+  cloud_init_config_compute = merge(local.cloud_init_config_template, {
 
-    #hostname = local.compute_hostnames[i]
+    # Use the hostname provided by the IMDS
 
-    packages = local.cloud_config_packages_template
+    packages = local.cloud_init_config_packages_template
 
-    write_files = concat(local.cloud_config_write_files_template, [
+    write_files = concat(local.cloud_init_config_write_files_template, [
       {
         path        = "/etc/systemd/network/10-ens4.link"
         owner       = "root:root"
@@ -390,7 +404,7 @@ locals {
       {
         path        = "/etc/virl2-base-config.yml"
         owner       = "root:root"
-        permissions = "0400"
+        permissions = "0640"
         content     = yamlencode(local.cml_config_compute)
       },
       {
@@ -416,7 +430,7 @@ locals {
       },
     ])
 
-    runcmd = local.cloud_config_runcmd_template
+    runcmd = local.cloud_init_config_runcmd_compute
   })
 }
 
@@ -737,11 +751,11 @@ data "cloudinit_config" "cml_controller" {
   part {
     filename     = "cloud-config.yaml"
     content_type = "text/cloud-config"
-    content      = format("#cloud-config\n%s", yamlencode(local.cloud_config_controller))
+    content      = format("#cloud-config\n%s", yamlencode(local.cloud_init_config_controller))
   }
 }
 
-resource "google_compute_region_instance_template" "cml_compute_instance_template" {
+resource "google_compute_region_instance_template" "cml_compute_region_instance_template" {
   name_prefix  = var.options.cfg.cluster.compute_hostname_prefix
   machine_type = var.options.cfg.gcp.compute_machine_type
 
@@ -761,8 +775,9 @@ resource "google_compute_region_instance_template" "cml_compute_instance_templat
   network_interface {
     network    = google_compute_network.cml_network.id
     subnetwork = google_compute_subnetwork.cml_subnet.id
-    access_config {
-    }
+    # Should not need an external IP
+    #access_config {
+    #}
     ipv6_access_config {
       network_tier = "PREMIUM"
     }
@@ -797,14 +812,14 @@ resource "google_compute_region_instance_template" "cml_compute_instance_templat
   }
 }
 
-resource "google_compute_instance_group_manager" "cml_compute_instance_template" {
-  name = "cml-compute-instance-template"
+resource "google_compute_instance_group_manager" "cml_compute_instance_group_manager" {
+  name = "cml-compute-instance-group-manager"
 
   base_instance_name = var.options.cfg.cluster.compute_hostname_prefix
   zone               = var.options.cfg.gcp.zone
 
   version {
-    instance_template = google_compute_region_instance_template.cml_compute_instance_template.id
+    instance_template = google_compute_region_instance_template.cml_compute_region_instance_template.id
   }
 
   #all_instances_config {
@@ -837,6 +852,6 @@ data "cloudinit_config" "cml_compute" {
   part {
     filename     = "cloud-config.yaml"
     content_type = "text/cloud-config"
-    content      = format("#cloud-config\n%s", yamlencode(local.cloud_config_compute))
+    content      = format("#cloud-config\n%s", yamlencode(local.cloud_init_config_compute))
   }
 }

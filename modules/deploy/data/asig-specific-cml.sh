@@ -115,7 +115,7 @@ function base_setup() {
     systemctl enable --now ssh.service
 
     # clean up software .pkg / .deb packages
-    rm -f /provision/*.pkg /provision/*.deb /tmp/*.deb
+    #rm -f /provision/*.pkg /provision/*.deb /tmp/*.deb
 
     # disable bridge setup in the cloud instance (controller and computes)
     # (this is a no-op with 2.7.1 as it skips bridge creation entirely)
