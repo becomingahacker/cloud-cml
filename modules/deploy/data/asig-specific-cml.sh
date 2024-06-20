@@ -7,6 +7,7 @@
 #
 
 # :%!shfmt -ci -i 4 -
+# TODO cmm - comment out, as this logs tokens
 set -x
 set -e
 
@@ -78,7 +79,25 @@ function base_setup() {
     if ! is_controller; then
         # Generate a unique compute UUID before installing, otherwise they're the same
         sed -i -e "s/COMPUTE_ID=\".*$/COMPUTE_ID=\"$(uuidgen)\"/" /etc/default/virl2
-    fi
+        
+        # Update hostname in the virl2-base-config.yml, otherwise it's localhost
+        systemctl stop NetworkManager
+        hostnamectl set-hostname $(cloud-init query local_hostname)
+        sed -i -e 's/^"hostname":.*$/"hostname": "'$(hostname -s)'"/' /etc/virl2-base-config.yml
+        systemctl start NetworkManager
+        cat /etc/virl2-base-config.yml
+
+        # Fix BGP router ID, otherwise it uses the virbr0 IP, which is the same on all compute nodes
+        BGP_ROUTER_ID="$(ip -j route show default | jq -r .[0].prefsrc)"
+        printf "router bgp 65001\nbgp router-id ${BGP_ROUTER_ID}\nend" >> /etc/frr/frr-base.conf 
+        vtysh -f /etc/frr/frr-base.conf
+        vtysh -c "copy running-config startup-config"
+        systemctl restart frr
+    else
+        # Otherwise just load the base config
+        vtysh -f /etc/frr/frr-base.conf
+        vtysh -c "copy running-config startup-config"
+    fi        
 
     # Fix for the headless setup (tty remove as the cloud VM has none)
     sed -i '/^Standard/ s/^/#/' /lib/systemd/system/virl2-initial-setup.service

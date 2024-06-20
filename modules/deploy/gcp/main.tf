@@ -53,7 +53,7 @@ locals {
   })
 
   cml_config_compute = merge(local.cml_config_template, {
-    # Use the hostname provided by the IMDS
+    # Will update this in cml.sh
     hostname      = ""
     is_controller = false
     is_compute    = true
@@ -156,20 +156,6 @@ locals {
         Kind=bridge
         [Bridge]
         VLANFiltering=0
-      EOF
-    },
-    {
-      path        = "/etc/systemd/network/20-cluster.link"
-      owner       = "root:root"
-      permissions = "0644"
-      # MTU has 50 bytes overhead for VXLAN/UDP/IP header
-      content = <<-EOF
-        [Match]
-        OriginalName=cluster
-        [Link]
-        Name=cluster
-        MTUBytes=${google_compute_network.cml_network.mtu - 50}
-        MACAddressPolicy=random
       EOF
     },
     {
@@ -277,10 +263,8 @@ locals {
     # Enable BGP daemon and restart FRR
     "sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons",
     "systemctl restart frr",
-    # Load base FRR configuration
-    "vtysh -f /etc/frr/frr-base.conf",
-    # Save FRR configuration
-    "vtysh -c 'copy running-config startup-config'",
+    # Disable OSConfig.  It blocks shutdowns.
+    "systemctl disable --now google-osconfig-agent.service",
   ]
 
   cloud_init_config_runcmd_controller = concat(local.cloud_init_config_runcmd_template,
@@ -314,8 +298,10 @@ locals {
   )
 
   cloud_init_config_template = {
-    package_update  = true
-    package_upgrade = true
+    # HACK cmm - We're using images with Packer, so we leave packages alone.
+    # This will be different than the globally merged code.
+    package_update  = false
+    package_upgrade = false
 
     manage_etc_hosts = true
 
@@ -347,6 +333,22 @@ locals {
         EOF
       },
       {
+        path        = "/etc/systemd/network/20-cluster.link"
+        owner       = "root:root"
+        permissions = "0644"
+        # MTU has 50 bytes overhead for VXLAN/UDP/IP header.
+        # Controller has a fixed MAC address that survives a reboot.  The
+        # computes aren't as important.
+        content = <<-EOF
+          [Match]
+          OriginalName=cluster
+          [Link]
+          Name=cluster
+          MTUBytes=${google_compute_network.cml_network.mtu - 50}
+          MACAddress=02:01:02:03:04:05
+        EOF
+      },
+      {
         path        = "/etc/virl2-base-config.yml"
         owner       = "root:root"
         permissions = "0640"
@@ -372,6 +374,7 @@ locals {
           !
           ip nht resolve-via-default
           !
+          end
         EOF
       },
     ])
@@ -402,6 +405,21 @@ locals {
         EOF
       },
       {
+        path        = "/etc/systemd/network/20-cluster.link"
+        owner       = "root:root"
+        permissions = "0644"
+        # MTU has 50 bytes overhead for VXLAN/UDP/IP header.
+        # Computes have random MAC addresses.
+        content = <<-EOF
+          [Match]
+          OriginalName=cluster
+          [Link]
+          Name=cluster
+          MTUBytes=${google_compute_network.cml_network.mtu - 50}
+          MACAddressPolicy=random
+        EOF
+      },
+      {
         path        = "/etc/virl2-base-config.yml"
         owner       = "root:root"
         permissions = "0640"
@@ -413,7 +431,7 @@ locals {
         permissions = "0640"
         content     = <<-EOF
           router bgp 65001
-           ! bgp router-id will be the primary interface
+           ! bgp router-id will be the primary interface, fixed in cml.sh
            neighbor VTEP peer-group
            neighbor VTEP remote-as 65001
            neighbor ${google_compute_address.cml_address_internal.address} peer-group VTEP
