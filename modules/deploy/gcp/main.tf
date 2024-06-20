@@ -75,13 +75,8 @@ locals {
       path        = "/provision/cml.sh"
       owner       = "root:root"
       permissions = "0700"
-      content     = var.options.cml
-    },
-    {
-      path        = "/provision/cml.sh"
-      owner       = "root:root"
-      permissions = "0700"
-      content     = var.options.cml
+      #content     = var.options.cml
+      content     = file("${path.module}/../data/asig-specific-cml.sh")
     },
     {
       path        = "/provision/common.sh"
@@ -699,7 +694,7 @@ resource "google_compute_instance" "cml_control_instance" {
 
   boot_disk {
     initialize_params {
-      image = "ubuntu-os-cloud/ubuntu-2004-lts"
+      image = "${var.options.cfg.gcp.project}/${var.options.cfg.gcp.controller_image_family}"
       size  = var.options.cfg.common.disk_size
     }
   }
@@ -763,7 +758,7 @@ resource "google_compute_instance" "cml_compute_instance" {
 
   boot_disk {
     initialize_params {
-      image = "ubuntu-os-cloud/ubuntu-2004-lts"
+      image = "${var.options.cfg.gcp.project}/${var.options.cfg.gcp.controller_image_family}"
       size  = var.options.cfg.cluster.compute_disk_size
     }
   }

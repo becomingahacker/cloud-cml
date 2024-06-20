@@ -31,49 +31,53 @@ function setup_pre_gcp() {
 
 function base_setup() {
 
-    # Check if this device is a controller
-    if is_controller; then
-        # copy node definitions and images to the instance
-        VLLI=/var/lib/libvirt/images
-        NDEF=node-definitions
-        IDEF=virl-base-images
-        mkdir -p $VLLI/$NDEF
+    ## Check if this device is a controller
+    #if is_controller; then
+    #    # copy node definitions and images to the instance
+    #    VLLI=/var/lib/libvirt/images
+    #    NDEF=node-definitions
+    #    IDEF=virl-base-images
+    #    mkdir -p $VLLI/$NDEF
 
-        # copy all node definitions as defined in the provisioned config
-        if [ $(jq </provision/refplat '.definitions|length') -gt 0 ]; then
-            elems=$(jq </provision/refplat -rc '.definitions|join(" ")')
-            for item in $elems; do
-                copyfile refplat/$NDEF/$item.yaml $VLLI/$NDEF/
-            done
-        fi
+    #    # copy all node definitions as defined in the provisioned config
+    #    if [ $(jq </provision/refplat '.definitions|length') -gt 0 ]; then
+    #        elems=$(jq </provision/refplat -rc '.definitions|join(" ")')
+    #        for item in $elems; do
+    #            copyfile refplat/$NDEF/$item.yaml $VLLI/$NDEF/
+    #        done
+    #    fi
 
-        # copy all image definitions as defined in the provisioned config
-        if [ $(jq </provision/refplat '.images|length') -gt 0 ]; then
-            elems=$(jq </provision/refplat -rc '.images|join(" ")')
-            for item in $elems; do
-                mkdir -p $VLLI/$IDEF/$item
-                copyfile refplat/$IDEF/$item/ $VLLI/$IDEF $item --recursive
-            done
-        fi
+    #    # copy all image definitions as defined in the provisioned config
+    #    if [ $(jq </provision/refplat '.images|length') -gt 0 ]; then
+    #        elems=$(jq </provision/refplat -rc '.images|join(" ")')
+    #        for item in $elems; do
+    #            mkdir -p $VLLI/$IDEF/$item
+    #            copyfile refplat/$IDEF/$item/ $VLLI/$IDEF $item --recursive
+    #        done
+    #    fi
 
-        # if there's no images at this point, copy what's available in the defined
-        # cloud storage container
-        if [ $(find $VLLI -type f | wc -l) -eq 0 ]; then
-            copyfile refplat/ $VLLI/ "" --recursive
-        fi
-    fi
+    #    # if there's no images at this point, copy what's available in the defined
+    #    # cloud storage container
+    #    if [ $(find $VLLI -type f | wc -l) -eq 0 ]; then
+    #        copyfile refplat/ $VLLI/ "" --recursive
+    #    fi
+    #fi
 
-    # copy CML distribution package from cloud storage into our instance, unpack & install
-    copyfile ${CFG_APP_SOFTWARE} /provision/
-    tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
-    systemctl stop ssh
-    apt-get install -y /tmp/*.deb
-    if [ -f /etc/netplan/50-cloud-init.yaml ]; then
-        # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
-        /provision/interface_fix.py
-        systemctl restart network-manager
-        netplan apply
-    fi
+    ## copy CML distribution package from cloud storage into our instance, unpack & install
+    #copyfile ${CFG_APP_SOFTWARE} /provision/
+    #tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
+    #systemctl stop ssh
+    #apt-get install -y /tmp/*.deb
+    #if [ -f /etc/netplan/50-cloud-init.yaml ]; then
+    #    # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
+    #    /provision/interface_fix.py
+    #    systemctl restart network-manager
+    #    netplan apply
+    #fi
+
+    # Generate a unique compute UUID before installing, otherwise they're the same
+    sed -i -e "s/COMPUTE_ID=\".*$/COMPUTE_ID=\"$(uuidgen)\"/" /etc/default/virl2
+
     # Fix for the headless setup (tty remove as the cloud VM has none)
     sed -i '/^Standard/ s/^/#/' /lib/systemd/system/virl2-initial-setup.service
     touch /etc/.virl2_unconfigured
@@ -174,7 +178,34 @@ function cml_configure() {
     # TODO: the licensing should use the PCL -- it's there, and it can do it
     # via a small Python script
 
+    # HACK cmm - Set the initial admin password to the saved machine id
+    PASS="$(cat /provision/saved-machine-id)"
     # Acquire a token
+    attempts=5
+    while [ $attempts -gt 0 ]; do
+        sleep 5
+        TOKEN=$(echo '{"username":"cml2","password":"'${PASS}'"}' \  |
+            curl -s -d@- $API/authenticate | jq -r)
+        if [ "$TOKEN" != "Authentication failed!" ]; then
+            break
+        fi
+        echo "no token, trying again ($attempts)"
+        ((attempts--))
+    done
+    if [ $attempts -eq 0 ]; then
+        echo "A token was never received... something went wrong!"
+        exit 1
+    fi
+
+    # change to provided name and password
+    curl -s -X "PATCH" \
+        "$API/users/00000000-0000-4000-a000-000000000000" \
+        -H "Authorization: Bearer $TOKEN" \
+        -H "accept: application/json" \
+        -H "Content-Type: application/json" \
+        -d '{"username":"'${CFG_APP_USER}'","password":{"new_password":"'${CFG_APP_PASS}'","old_password":"'${PASS}'"}}'
+
+    # Acquire a new token
     attempts=5
     while [ $attempts -gt 0 ]; do
         sleep 5
