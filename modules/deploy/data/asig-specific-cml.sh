@@ -75,8 +75,10 @@ function base_setup() {
     #    netplan apply
     #fi
 
-    # Generate a unique compute UUID before installing, otherwise they're the same
-    sed -i -e "s/COMPUTE_ID=\".*$/COMPUTE_ID=\"$(uuidgen)\"/" /etc/default/virl2
+    if ! is_controller; then
+        # Generate a unique compute UUID before installing, otherwise they're the same
+        sed -i -e "s/COMPUTE_ID=\".*$/COMPUTE_ID=\"$(uuidgen)\"/" /etc/default/virl2
+    fi
 
     # Fix for the headless setup (tty remove as the cloud VM has none)
     sed -i '/^Standard/ s/^/#/' /lib/systemd/system/virl2-initial-setup.service

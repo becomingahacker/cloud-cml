@@ -36,13 +36,13 @@ locals {
       }
     }
     # HACK cmm - This must be set for NFS to work
-    cluster_interface   = "cluster"
-    compute_secret      = var.options.cfg.secrets.cluster.secret
-    controller_name     = local.controller_hostname
-    copy_iso_to_disk    = false
-    interactive         = false
-    is_cluster          = var.options.cfg.cluster.enable_cluster
-    is_configured       = false
+    cluster_interface = "cluster"
+    compute_secret    = var.options.cfg.secrets.cluster.secret
+    controller_name   = local.controller_hostname
+    copy_iso_to_disk  = false
+    interactive       = false
+    is_cluster        = var.options.cfg.cluster.enable_cluster
+    is_configured     = false
     # HACK cmm - This must be set to do controller steps in virl2-initial-setup.py
     primary_interface   = "ens4"
     ssh_server          = true
@@ -56,13 +56,12 @@ locals {
     is_compute    = !var.options.cfg.cluster.enable_cluster || var.options.cfg.cluster.allow_vms_on_controller
   })
 
-  cml_config_compute = [for compute_hostname in local.compute_hostnames :
-    merge(local.cml_config_template, {
-      hostname      = compute_hostname
-      is_controller = false
-      is_compute    = true
-    })
-  ]
+  cml_config_compute = merge(local.cml_config_template, {
+    # TODO cmm - fix this
+    hostname      = ""
+    is_controller = false
+    is_compute    = true
+  })
 
   cloud_config_write_files_template = concat([
     {
@@ -76,7 +75,7 @@ locals {
       owner       = "root:root"
       permissions = "0700"
       #content     = var.options.cml
-      content     = file("${path.module}/../data/asig-specific-cml.sh")
+      content = file("${path.module}/../data/asig-specific-cml.sh")
     },
     {
       path        = "/provision/common.sh"
@@ -280,7 +279,7 @@ locals {
     "echo -n 'Cluster link scope: ' && resolvectl status cluster | awk '/Current Scopes/ { print $3 }'",
 
     # Enable BGP daemon and restart FRR
-    "sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons", 
+    "sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons",
     "systemctl restart frr",
     # Load base FRR configuration
     "vtysh -f /etc/frr/frr-base.conf",
@@ -288,7 +287,7 @@ locals {
     "vtysh -c 'copy running-config startup-config'",
 
     # Install cml 
-    "/provision/cml.sh && touch /run/reboot || echo 'CML provisioning failed.  Not rebooting'", 
+    "/provision/cml.sh && touch /run/reboot || echo 'CML provisioning failed.  Not rebooting'",
     # Remove primary interface from NetworkManager, placed by
     # virl2-initial-setup.py.  This will be handled by systemd-networkd instead.
     "rm /etc/NetworkManager/system-connections/* || true",
@@ -333,8 +332,8 @@ locals {
         EOF
       },
       {
-        path        = "/etc/virl2-base-config.yml"
-        owner       = "root:root"
+        path  = "/etc/virl2-base-config.yml"
+        owner = "root:root"
         # TODO cmm - Does this keep setup from overwriting?
         permissions = "0400"
         content     = yamlencode(local.cml_config_controller)
@@ -368,59 +367,57 @@ locals {
 
   network_interface_path_compute = "pci-0000:00:04.0"
 
-  cloud_config_compute = [for i in range(0, var.options.cfg.cluster.number_of_compute_nodes) :
-    merge(local.cloud_config_template, {
+  cloud_config_compute = merge(local.cloud_config_template, {
 
-      hostname = local.compute_hostnames[i]
+    #hostname = local.compute_hostnames[i]
 
-      packages = local.cloud_config_packages_template
+    packages = local.cloud_config_packages_template
 
-      write_files = concat(local.cloud_config_write_files_template, [
-        {
-          path        = "/etc/systemd/network/10-ens4.link"
-          owner       = "root:root"
-          permissions = "0644"
-          content     = <<-EOF
-            [Match]
-            Path=${local.network_interface_path_compute}
-            [Link]
-            Name=ens4
-            WakeOnLan=off
-            MTUBytes=${google_compute_network.cml_network.mtu}
-          EOF
-        },
-        {
-          path        = "/etc/virl2-base-config.yml"
-          owner       = "root:root"
-          permissions = "0400"
-          content     = yamlencode(local.cml_config_compute[i])
-        },
-        {
-          path        = "/etc/frr/frr-base.conf"
-          owner       = "root:root"
-          permissions = "0640"
-          content     = <<-EOF
-            router bgp 65001
-             ! bgp router-id will be the primary interface
-             neighbor VTEP peer-group
-             neighbor VTEP remote-as 65001
-             neighbor ${google_compute_address.cml_address_internal.address} peer-group VTEP
-             !
-             address-family l2vpn evpn
-              neighbor VTEP activate
-              advertise-all-vni
-              advertise-svi-ip
-             exit-address-family
-            !
-            ip nht resolve-via-default
-            !
-          EOF
-        },
-      ])
+    write_files = concat(local.cloud_config_write_files_template, [
+      {
+        path        = "/etc/systemd/network/10-ens4.link"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Match]
+          Path=${local.network_interface_path_compute}
+          [Link]
+          Name=ens4
+          WakeOnLan=off
+          MTUBytes=${google_compute_network.cml_network.mtu}
+        EOF
+      },
+      {
+        path        = "/etc/virl2-base-config.yml"
+        owner       = "root:root"
+        permissions = "0400"
+        content     = yamlencode(local.cml_config_compute)
+      },
+      {
+        path        = "/etc/frr/frr-base.conf"
+        owner       = "root:root"
+        permissions = "0640"
+        content     = <<-EOF
+          router bgp 65001
+           ! bgp router-id will be the primary interface
+           neighbor VTEP peer-group
+           neighbor VTEP remote-as 65001
+           neighbor ${google_compute_address.cml_address_internal.address} peer-group VTEP
+           !
+           address-family l2vpn evpn
+            neighbor VTEP activate
+            advertise-all-vni
+            advertise-svi-ip
+           exit-address-family
+          !
+          ip nht resolve-via-default
+          !
+        EOF
+      },
+    ])
 
-      runcmd = local.cloud_config_runcmd_template
-    })
-  ]
+    runcmd = local.cloud_config_runcmd_template
+  })
 }
 
 resource "google_service_account" "cml_service_account" {
@@ -744,23 +741,18 @@ data "cloudinit_config" "cml_controller" {
   }
 }
 
-resource "google_compute_instance" "cml_compute_instance" {
-  count                     = local.num_computes
-  name                      = "cml-compute-${count.index + 1}"
-  machine_type              = var.options.cfg.gcp.machine_type
-  allow_stopping_for_update = true
+resource "google_compute_region_instance_template" "cml_compute_instance_template" {
+  name_prefix  = var.options.cfg.cluster.compute_hostname_prefix
+  machine_type = var.options.cfg.gcp.compute_machine_type
 
-  params {
-    resource_manager_tags = {
-      (google_tags_tag_key.cml_tag_network_key.id) = google_tags_tag_value.cml_tag_network_cml.id
-    }
+  resource_manager_tags = {
+    (google_tags_tag_key.cml_tag_network_key.id) = google_tags_tag_value.cml_tag_network_cml.id
   }
 
-  boot_disk {
-    initialize_params {
-      image = "${var.options.cfg.gcp.project}/${var.options.cfg.gcp.controller_image_family}"
-      size  = var.options.cfg.cluster.compute_disk_size
-    }
+
+  disk {
+    source_image = "${var.options.cfg.gcp.project}/${var.options.cfg.gcp.compute_image_family}"
+    disk_size_gb = var.options.cfg.cluster.compute_disk_size
   }
 
   # Use machine as a router & disable source address checking
@@ -785,7 +777,7 @@ resource "google_compute_instance" "cml_compute_instance" {
   metadata = {
     block-project-ssh-keys = try(var.options.cfg.gcp.ssh_key != null) ? true : false
     ssh-keys               = try(var.options.cfg.gcp.ssh_key != null) ? var.options.cfg.gcp.ssh_key : null
-    user-data              = data.cloudinit_config.cml_compute[count.index].rendered
+    user-data              = data.cloudinit_config.cml_compute.rendered
     serial-port-enable     = true
     enable-osconfig        = "TRUE"
   }
@@ -793,16 +785,58 @@ resource "google_compute_instance" "cml_compute_instance" {
   advanced_machine_features {
     enable_nested_virtualization = true
   }
+
+  shielded_instance_config {
+    enable_secure_boot          = true
+    enable_vtpm                 = true
+    enable_integrity_monitoring = false
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "google_compute_instance_group_manager" "cml_compute_instance_template" {
+  name = "cml-compute-instance-template"
+
+  base_instance_name = var.options.cfg.cluster.compute_hostname_prefix
+  zone               = var.options.cfg.gcp.zone
+
+  version {
+    instance_template = google_compute_region_instance_template.cml_compute_instance_template.id
+  }
+
+  #all_instances_config {
+  #  metadata = {
+  #    metadata_key = "metadata_value"
+  #  }
+  #  labels = {
+  #    label_key = "label_value"
+  #  }
+  #}
+
+  #target_pools = [google_compute_target_pool.appserver.id]
+  target_size = var.options.cfg.cluster.number_of_compute_nodes
+
+  #named_port {
+  #  name = "customhttp"
+  #  port = 8888
+  #}
+
+  #auto_healing_policies {
+  #  health_check      = google_compute_health_check.autohealing.id
+  #  initial_delay_sec = 300
+  #}
 }
 
 data "cloudinit_config" "cml_compute" {
   gzip          = false
   base64_encode = false # always true if gzip is true
-  count         = local.num_computes
 
   part {
     filename     = "cloud-config.yaml"
     content_type = "text/cloud-config"
-    content      = format("#cloud-config\n%s", yamlencode(local.cloud_config_compute[count.index]))
+    content      = format("#cloud-config\n%s", yamlencode(local.cloud_config_compute))
   }
 }
