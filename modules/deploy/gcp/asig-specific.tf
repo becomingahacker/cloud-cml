@@ -10,12 +10,6 @@ resource "google_tags_tag_value" "cml_tag_network_router" {
   description = "For identifying routers"
 }
 
-resource "google_certificate_manager_dns_authorization" "cml_dns_auth" {
-  name        = "cml-dns-auth"
-  location    = var.options.cfg.gcp.region
-  description = "Cisco Modeling Labs DNS Authorization"
-  domain      = var.options.cfg.gcp.load_balancer_fqdn
-}
 
 #resource "google_compute_instance" "cmm_test_instance" {
 #  name                      = "cmm-test"
@@ -75,16 +69,78 @@ resource "google_certificate_manager_dns_authorization" "cml_dns_auth" {
 #  }
 #}
 
-data "google_dns_managed_zone" "prod" {
+data "google_dns_managed_zone" "cml_zone" {
   name = var.options.cfg.gcp.dns_zone_name
 }
 
-resource "google_dns_record_set" "cml_instance_dns" {
-  name = "${var.options.cfg.gcp.load_balancer_fqdn}."
-  type = "A"
-  ttl  = 300
+resource "google_compute_network_endpoint_group" "cml_endpoint_group" {
+  name = "cml-endpoint-group"
+  network = google_compute_network.cml_network.id
+  subnetwork = google_compute_subnetwork.cml_subnet.id
+  zone = var.options.cfg.gcp.zone
+  network_endpoint_type = "GCE_VM_IP"
+}
 
-  managed_zone = data.google_dns_managed_zone.prod.name
+resource "google_compute_network_endpoint" "cml_controller_endpoint" {
+  network_endpoint_group = google_compute_network_endpoint_group.cml_endpoint_group.name
+  instance = google_compute_instance.cml_control_instance.name
+  ip_address = google_compute_address.cml_address_internal.address
+}
 
-  rrdatas = [google_compute_address.cml_address.address]
+
+resource "google_compute_subnetwork" "cml_proxy_subnet" {
+  name          = "cml-proxy-subnet"
+  network       = google_compute_network.cml_network.id
+  ip_cidr_range = var.options.cfg.gcp.proxy_subnet_cidr
+  stack_type    = "IPV4_ONLY"
+  purpose       = "REGIONAL_MANAGED_PROXY"
+  role          = "ACTIVE"
+}
+
+resource "google_certificate_manager_dns_authorization" "cml_dns_auth" {
+  for_each = toset(var.options.cfg.gcp.load_balancer_fqdns)
+  name     = "cml-dns-auth-${replace(each.key, ".", "-")}"
+  location = "global"
+  #location    = var.options.cfg.gcp.region
+  description = "cml-dns-auth-${replace(each.key, ".", "-")}"
+  domain      = each.key
+}
+
+resource "google_dns_record_set" "cml_dns_auth" {
+  for_each = toset(var.options.cfg.gcp.load_balancer_fqdns)
+  name     = google_certificate_manager_dns_authorization.cml_dns_auth[each.key].dns_resource_record[0].name
+  type     = google_certificate_manager_dns_authorization.cml_dns_auth[each.key].dns_resource_record[0].type
+  ttl      = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    google_certificate_manager_dns_authorization.cml_dns_auth[each.key].dns_resource_record[0].data
+  ]
+}
+
+resource "google_certificate_manager_certificate" "cml_certificate" {
+  name        = "cml-certificate"
+  description = "cml-certificate"
+  #location    = var.options.cfg.gcp.region
+  #scope = "ALL_REGIONS"
+  scope = "DEFAULT"
+
+  managed {
+    domains = var.options.cfg.gcp.load_balancer_fqdns
+    dns_authorizations = [for i in var.options.cfg.gcp.load_balancer_fqdns :
+    google_certificate_manager_dns_authorization.cml_dns_auth[i].id]
+  }
+  depends_on = [google_dns_record_set.cml_dns_auth]
+}
+
+resource "google_certificate_manager_certificate_map" "cml_certificate_map" {
+  name = "cml-certificate-map"
+}
+
+resource "google_certificate_manager_certificate_map_entry" "cml_certificate_map_entry" {
+  name         = "cml-certificate-map-entry"
+  map          = google_certificate_manager_certificate_map.cml_certificate_map.name
+  certificates = [google_certificate_manager_certificate.cml_certificate.id]
+  matcher      = "PRIMARY"
 }
