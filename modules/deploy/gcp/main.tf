@@ -853,8 +853,13 @@ resource "google_compute_instance_group_manager" "cml_compute_instance_group_man
   target_size = var.options.cfg.cluster.number_of_compute_nodes
 
   #named_port {
-  #  name = "customhttp"
-  #  port = 8888
+  #  name = "http"
+  #  port = 80
+  #}
+
+  #named_port {
+  #  name = "https"
+  #  port = 443
   #}
 
   #auto_healing_policies {
