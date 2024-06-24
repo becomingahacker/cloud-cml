@@ -793,7 +793,7 @@ resource "google_compute_instance" "cml_control_instance" {
   metadata = {
     block-project-ssh-keys = try(var.options.cfg.gcp.ssh_key != null) ? true : false
     ssh-keys               = try(var.options.cfg.gcp.ssh_key != null) ? var.options.cfg.gcp.ssh_key : null
-    user-data              = data.cloudinit_config.cml_controller.rendered
+    user-data              = sensitive(data.cloudinit_config.cml_controller.rendered)
     serial-port-enable     = true
     enable-osconfig        = "TRUE"
   }
@@ -851,7 +851,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   metadata = {
     block-project-ssh-keys = try(var.options.cfg.gcp.ssh_key != null) ? true : false
     ssh-keys               = try(var.options.cfg.gcp.ssh_key != null) ? var.options.cfg.gcp.ssh_key : null
-    user-data              = data.cloudinit_config.cml_compute.rendered
+    user-data              = sensitive(data.cloudinit_config.cml_compute.rendered)
     serial-port-enable     = true
     enable-osconfig        = "TRUE"
   }
