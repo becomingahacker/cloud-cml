@@ -718,6 +718,28 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   target_service_accounts = [google_service_account.cml_service_account.email]
 }
 
+resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cml_gre" {
+  action          = "allow"
+  description     = "Cisco Modeling Labs allow GRE from other C8K instances"
+  direction       = "INGRESS"
+  disabled        = false
+  enable_logging  = false
+  firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
+  priority        = 109
+  region          = var.options.cfg.gcp.region
+  rule_name       = "cml-firewall-rule-cml-gre"
+
+  match {
+    src_ip_ranges = ["100.64.2.0/24"]
+
+    layer4_configs {
+      ip_protocol = 47
+    }
+  }
+
+  target_service_accounts = [google_service_account.cml_service_account.email]
+}
+
 resource "google_compute_address" "cml_address_internal" {
   name         = "cml-address-internal"
   address_type = "INTERNAL"
