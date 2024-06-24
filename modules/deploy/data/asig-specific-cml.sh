@@ -93,6 +93,11 @@ function base_setup() {
         vtysh -f /etc/frr/frr-base.conf
         vtysh -c "copy running-config startup-config"
         systemctl restart frr
+
+        # Start routed external network (100.64.1.0/24)
+        virsh net-define /provision/net-bah-external.xml
+        virsh net-autostart bah-external
+        virsh net-start bah-external
     else
         # Otherwise just load the base config
         vtysh -f /etc/frr/frr-base.conf

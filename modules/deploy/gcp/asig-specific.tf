@@ -87,7 +87,6 @@ resource "google_compute_network_endpoint" "cml_controller_endpoint" {
   ip_address = google_compute_address.cml_address_internal.address
 }
 
-
 resource "google_compute_subnetwork" "cml_proxy_subnet" {
   name          = "cml-proxy-subnet"
   network       = google_compute_network.cml_network.id

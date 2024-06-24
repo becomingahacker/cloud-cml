@@ -377,6 +377,25 @@ locals {
           end
         EOF
       },
+      {
+        path        = "/provision/net-bah-external.xml"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          <network>
+            <name>bah-external</name>
+            <forward mode='route'/>
+            <bridge name='virbr1' stp='off' delay='0'/>
+            <mtu size="${google_compute_network.cml_network.mtu}"/>
+            <mac address='02:00:00:00:00:01'/>
+            <ip address='100.64.1.254' netmask='255.255.255.0'>
+              <dhcp>
+                <range start='100.64.1.1' end='100.64.1.253'/>
+              </dhcp>
+            </ip>
+          </network>
+        EOF
+      },
     ])
 
     runcmd = local.cloud_init_config_runcmd_controller
