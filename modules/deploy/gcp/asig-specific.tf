@@ -96,6 +96,18 @@ resource "google_compute_subnetwork" "cml_proxy_subnet" {
   role          = "ACTIVE"
 }
 
+resource "google_dns_record_set" "cml_controller_dns" {
+  name     = "${var.options.cfg.common.controller_hostname}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  type     = "A"
+  ttl      = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    google_compute_address.cml_address.address
+  ]
+}
+
 resource "google_certificate_manager_dns_authorization" "cml_dns_auth" {
   for_each = toset(var.options.cfg.gcp.load_balancer_fqdns)
   name     = "cml-dns-auth-${replace(each.key, ".", "-")}"

@@ -518,12 +518,12 @@ resource "google_compute_subnetwork" "cml_subnet" {
   stack_type       = "IPV4_IPV6"
   ipv6_access_type = "EXTERNAL"
 
-  log_config {
-    aggregation_interval = "INTERVAL_5_SEC"
-    flow_sampling        = 0.5
-    metadata             = "INCLUDE_ALL_METADATA"
-    metadata_fields      = []
-  }
+  #log_config {
+  #  aggregation_interval = "INTERVAL_5_SEC"
+  #  flow_sampling        = 0.5
+  #  metadata             = "INCLUDE_ALL_METADATA"
+  #  metadata_fields      = []
+  #}
 }
 
 resource "google_compute_region_network_firewall_policy" "cml_firewall_policy" {
