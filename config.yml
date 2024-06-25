@@ -44,6 +44,7 @@ gcp:
   zone: us-east1-b
   bucket: bucket-name-goes-here
   machine_type: c3-standard-4-lssd
+  compute_machine_type: n2-highmem-32
   # <user>:<ssh public key>
   ssh_key: "ubuntu:ssh-rsa AAAAB3Nza..."
   load_balancer_fqdn: 
