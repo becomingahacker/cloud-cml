@@ -47,8 +47,8 @@ gcp:
   # TODO cmm - needs a separate machine type for compute nodes
   machine_type: n2-standard-4
   #compute_machine_type: n2-standard-4
-  #compute_machine_type: n2-highmem-32
-  compute_machine_type: n2-highmem-4
+  compute_machine_type: n2-highmem-32
+  #compute_machine_type: n2-highmem-4
   # Machines will inherit the SSH keys from project's metadata for all users unless you provide below
   # <user>:<ssh public key>
   # e.g. ssh_key: "cml:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGDAqIBESzn9J9rdSLarhyU6GNycV+43DkdkNzSgfLrP"
@@ -90,7 +90,7 @@ cluster:
   # No longer used, see the secret manager section below
   #secret: your-secret-password
   allow_vms_on_controller: false
-  number_of_compute_nodes: 2
+  number_of_compute_nodes: 4
   compute_hostname_prefix: cml-compute
   compute_disk_size: 128
 
