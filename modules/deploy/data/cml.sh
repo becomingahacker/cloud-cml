@@ -7,8 +7,8 @@
 #
 
 # :%!shfmt -ci -i 4 -
-set -x
-set -e
+# set -x
+# set -e
 
 source /provision/common.sh
 source /provision/copyfile.sh
@@ -262,8 +262,7 @@ echo "### Provisioning via cml.sh starts"
 # AWS specific (?):
 # For troubleshooting. To allow console access on AWS, the root user needs a
 # password. Note: not all instance types / flavors provide a serial console!
-# TODO cmm - FIXME
-#echo "root:secret-password-here" | /usr/sbin/chpasswd
+# echo "root:secret-password-here" | /usr/sbin/chpasswd
 
 # Ensure non-interactive Debian package installation
 APT_OPTS="-o Dpkg::Options::=--force-confmiss -o Dpkg::Options::=--force-confnew"
