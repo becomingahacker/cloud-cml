@@ -756,6 +756,10 @@ resource "google_compute_instance" "cml_control_instance" {
   machine_type              = var.options.cfg.gcp.machine_type
   allow_stopping_for_update = true
 
+  labels = {
+    allow_public_ip_address = "true"
+  }
+
   params {
     resource_manager_tags = {
       (google_tags_tag_key.cml_tag_network_key.id) = google_tags_tag_value.cml_tag_network_cml.id
