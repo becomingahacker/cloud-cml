@@ -43,9 +43,7 @@ gcp:
   subnet_cidr: 10.10.0.0/16
   proxy_subnet_cidr: 10.11.1.0/24
   bucket: bah-machine-images
-  #machine_type: c3-standard-4-lssd
-  # TODO cmm - needs a separate machine type for compute nodes
-  machine_type: n2-standard-4
+  machine_type: n2-highmem-2
   #compute_machine_type: n2-standard-4
   compute_machine_type: n2-highmem-32
   #compute_machine_type: n2-highmem-4
