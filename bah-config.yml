@@ -33,32 +33,190 @@ azure:
   storage_account: storage-account-name
   container_name: container-name
 
+# TODO cmm - Put secrets in secret manager
 gcp:
+
   # Path to JSON-formatted service account key file.  Not required if using
-  # gcloud auth application-default login  Leave empty in this case.
+  # 'gcloud auth application-default login' to authenticate to Google Cloud.
+  # Leave empty in this case.
   credentials:
+
+  # Google Cloud Platform project, region, and availablility zones.  Required.
+  # Note that zone 'us-east1-a' doesn't exist, or isn't available to you.  If
+  # more than one zone is specified, the first zone will be used for the
+  # controller and the compute nodes will be spread across the first and
+  # remaining zones.  Recommend multiple zones if using spot instances
+  # for compute.
   project: gcp-asigbahgcp-nprd-47930
   region: us-east1
-  zone: us-east1-b
-  subnet_cidr: 10.10.0.0/16
-  proxy_subnet_cidr: 10.11.1.0/24
+  zones:
+    - us-east1-b
+
+  # CML Network name.  If left empty, a new network will be created with a the
+  # name 'cml-network-', and a random suffix.  Otherwise network_name must
+  # match an existing network.
+  network_name: cml-network
+
+  # IPv6 Unique Local Address (ULA) CIDR block.  Used for internal CML
+  # communications between nodes.  Must be a /48.  Leave empty to have Google 
+  # create one for you, or use an existing network.  In either case of creating
+  # a new network or using an existing network, and not using an all-in-one 
+  # deployment, a ULA is required. 
+  # https://unique-local-ipv6.com/
+  network_internal_v6_ula_cidr: fd20:c97:6372:0::/48
+
+  # Network MTU.  Leave empty to use the default of 1460 octets or use the
+  # existing network MTU.  1500 octets or higher is recommended.  Max 8896
+  # octets.
+  network_mtu: 8896
+
+  # CML firewall policy name.  Leave empty to use an existing firewall policy
+  # associated with the network indicated above.  VPC firewall rules are not
+  # supported.  Only network firewall policies are supported.
+  network_firewall_policy_name: cml-firewall-policy
+
+  # Starting priority for defining firewall rules in the supplied firewall
+  # policy.  Lower numbers are processed first.  Must not overlap with exising
+  # rules.  Recommend leaving room for 100 rules for growth.
+  network_firewall_start_rule_priority: 100
+  network_firewall_end_rule_priority:   199
+
+  # CML controller subnet name and IPv4 CIDR block.  Leave
+  # 'controller_subnet_cidr' empty to use existing subnet.  Existing subnet MUST
+  # have dual-stack IPv6 enabled with EXTERNAL access type.  If creating
+  # a new subnet, it will be EXTERNAL access type.
+  controller_subnet_name: cml-controller-subnet
+  controller_subnet_cidr: 100.64.1.0/24
+
+  # CML compute subnet name and IPv4 CIDR block.  Only needed if
+  # cluster.enable_cluster is set to 'true'.  Leave 'compute_subnet_cidr' empty
+  # to use existing subnet.  Existing subnet must have dual-stack IPv6 enabled,
+  # wth EXTERNAL or INTERNAL access type.  If creating a new subnet, it will be
+  # INTERNAL access type and compute machines will not have Internet access.
+  # Can be the same name as the controller subnet, just leave 'compute_subnet_cidr'
+  # empty in this case.
+  compute_subnet_name: cml-compute-subnet
+  compute_subnet_cidr: 100.64.2.0/24
+
+  # Private Service Connect CIDR block.  Leave 'private_service_connnect_cidr'
+  # empty to use an existing subnet.  In both cases, required.
+  # Access to internal Google services, such as logging and metrics, for
+  # machines that don't have Internet access, such as computes.
+  private_service_connnect_subnet_name: cml-private-service-connect-subnet
+  private_service_connnect_cidr: 100.64.3.0/24
+
+  # Use a load balancer for external access.  If set to true, a load balancer
+  # will be created and the DNS A/AAAA records will be updated with the load balancer's
+  # IP addresses.  If set to false or empty, the controller's external IP address
+  # will all that will be available to you.
+  enable_load_balancer: true
+
+  # DNS zone name and load balancer FQDNs.  Only needed if
+  # 'enable_load_balancer' is set to true and load_balancer_fqdns has
+  # fully-qualified domain names provided.  Automatically creates HTTPS
+  # certificates if both are specified.  If 'dns_zone_name' is provided, A/AAAA
+  # records will be created for the controller hostname in addition.
+  dns_zone_name: becomingahacker-com 
+  load_balancer_fqdns:
+   - becomingahacker.com
+   - labs.becomingahacker.com
+
+  # Enable Identity-Aware Proxy (IAP) for the load balancer.  If set to 'true',
+  # you will need to log in with your Google account to access the controller.
+  # If set to 'false', the controller will be accessible anonymously if the user
+  # has a valid CML credential.
+  #
+  # Setting to 'true' is strongly recommended if using a load balancer, since it
+  # DOES NOT currently support common.allowed_ipv4_subnets.  Note that if IAP is
+  # enabled, the Breakout tool or API access via a JSON web token is not
+  # currently supported.  Enabling IAP provides project users and groups with
+  # owner privileges owners access to the IAP and CML by default, but others may
+  # be added manually from the IAM console.
+  # 
+  # https://cloud.google.com/iap/docs/concepts-overview
+  enable_iap: true
+
+  # Proxy-only subnets, for external load balancers.  If 'enable_load_balancer'
+  # is 'false', not required and may be left empty for all four.  To use an
+  # existing subnets, leave 'region_proxy_subnet_cidr' and
+  # 'global_proxy_subnet_cidr' empty.  Existing subnets MUST have dual-stack
+  # IPv4/IPv6 enabled with an INTERNAL access type (which is the default for
+  # dual-stack proxy-only subnets).
+  region_proxy_subnet_name: cml-region-proxy-subnet
+  region_proxy_subnet_cidr: 100.64.3.0/24
+  global_proxy_subnet_name: cml-global-proxy-subnet
+  global_proxy_subnet_cidr: 100.64.4.0/24
+
+ # Custom external connections in libvirt
+  cml_custom_external_bridges:
+    # Name of the bridge.  Must be unique.
+    virbr1:
+      # Enable NAT for the bridge.  If set to true, traffic exiting will use the
+      # controller IP.  If set to false, routes will be created and attached
+      # devices will only have internal access to the network VPC.
+      enable_nat: false
+      cidr: 100.64.5.0/24
+      # 'internal' /64 from ULA, 'external' /96 from controller subnet, or
+      # 'none'.  In both cases, 'internal' or 'external', routes will be
+      # created.  If 'external', DHCPv6 will be configured.  If 'none', IPv6
+      # will not be configured.  SLAAC is only supported with 'internal' access
+      # type.  NAT is not supported for IPv6.
+      ipv6_access_type: internal
+      # MTU for bridge.  Leave empty to use network MTU.  Recommend limiting to
+      # 1500 octets if using IPv6 SLAAC or DHCPv4, and equipment doesn't support option 26
+      # to set MTU.
+      mtu:
+
+  # Google Cloud Storage bucket for machine images.  Required.  The bucket must contain
+  # cml2 packages and refplat images.
   bucket: bah-machine-images
-  machine_type: n2-highmem-2
-  #compute_machine_type: n2-standard-4
-  compute_machine_type: n2-highmem-32
-  #compute_machine_type: n2-highmem-4
-  spot_compute_machine_type: n2-highmem-4
-  number_of_spot_compute_nodes: 1
-  # Machines will inherit the SSH keys from project's metadata for all users unless you provide below
-  # <user>:<ssh public key>
-  # e.g. ssh_key: "cml:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGDAqIBESzn9J9rdSLarhyU6GNycV+43DkdkNzSgfLrP"
-  ssh_key:
-  load_balancer_fqdns: 
-    - becomingahacker.com
-    - labs.becomingahacker.com
-  dns_zone_name: becomingahacker-com
+  
+  # Controller machine type.  4 VCPUs or higher is required.
+  controller_machine_type: n2-highmem-2
+  #controller_machine_type: n2-standard-4
+
+  # Controller image family.  Provides access to the most recent custom image
+  # for the control machine.  Leave empty to use 'ubuntu-2004-lts'.
   controller_image_family: cloud-cml-controller-amd64
+
+  # Compute machine provisioning model -- can be 'on-demand' or 'spot'.  Required
+  # if cluster.enable_cluster is set to 'true'.  
+  #
+  # IMPORTANT NOTE: Spot instances may be terminated at any time by Google Cloud,
+  # and existing node state MUST be wiped and data WILL BE LOST.  An advantage of
+  # spot instances is that they are far cheaper than on-demand instances.
+  #
+  compute_machine_provisioning_model: on-demand
+
+  # Compute image family.  Provides access to the most recent custom image for
+  # the compute machine.  Leave empty to use 'ubuntu-2004-lts'.  Used for both
+  # provisioning models.
   compute_image_family: cloud-cml-compute-amd64
+
+  # On-demand compute machine type.  Required if
+  # compute_machine_provisioning_model is 'on-demand'.  If still specified and
+  # compute_machine_provisioning_model is 'spot', this value will be used to create
+  # an instance group with zero instances for easy scale-up of reliable machines.
+  #on_demand_compute_machine_type: n2-standard-4
+  #on_demand_compute_machine_type: n2-highmem-4
+  on_demand_compute_machine_type: n2-highmem-32
+
+  # Spot compute machine type.  Required if compute_machine_provisioning_model
+  # is 'spot'.  If still specified and compute_machine_provisioning_model
+  # is 'on-demand', this value will be used to create an instance group with zero
+  # instances for easy scale-up of cheap, but unreliable, machines.
+  spot_compute_machine_type: n2-highmem-4
+
+  # SSH public keys to add to controller and compute instances.  Leave empty to
+  # inherit from the project's metadata.  Automatically creates user with sudo
+  # privileges.  Note that the controller is listening on port 1122 for these
+  # credentials.  Port 22 is used for the built-in CML console server.
+  # Format: <user>:<ssh-key-type> <ssh public key> [<optional comment>]
+  # e.g. 
+  # ssh_keys: |
+  #   cml_user:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGDAqIBESzn9J9rdSLarhyU6GNycV+43DkdkNzSgfLrP
+  #   cml_admin:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFogojMnu6vXM1G1sMQv3boRvs6PxpUTIUw/GI7QrTaH
+  ssh_keys:
 
 common:
   disk_size: 128
@@ -196,14 +354,14 @@ refplat:
     # - cat-sdwan-vedge
     # - csr1000v
     # - desktop
-    - iol-xe
-    - ioll2-xe
-    - iosv
-    - iosvl2
+    # - iol-xe
+    # - ioll2-xe
+    # - iosv
+    # - iosvl2
     # - iosxrv9000
     # - nxosv9000
-    - server
-    - ubuntu
+    # - server
+    # - ubuntu
   images:
     - alpine-base-3-19-1
     # - alpine-trex-3-19-1
@@ -219,11 +377,11 @@ refplat:
     # - cat-sdwan-vedge-20-13-1
     # - csr1000v-17-03-068a
     # - desktop-3-19-1-xfce
-    - iol-xe-17-12-01
-    - ioll2-xe-17-12-01
-    - iosv-159-3-m8
-    - iosvl2-2020
+    # - iol-xe-17-12-01
+    # - ioll2-xe-17-12-01
+    # - iosv-159-3-m8
+    # - iosvl2-2020
     # - iosxrv9000-7-11-1
     # - nxosv9300-10-4-2-f
-    - server-tcl-14-0
-    - ubuntu-22-04-20240126
+    # - server-tcl-14-0
+    # - ubuntu-22-04-20240126

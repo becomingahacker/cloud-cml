@@ -311,6 +311,7 @@ locals {
     }
   }
 
+  # TODO cmm - needs to come from configuration
   network_interface_path_controller = "pci-0000:00:04.0"
 
   cloud_init_config_controller = merge(local.cloud_init_config_template, {
@@ -401,6 +402,7 @@ locals {
     runcmd = local.cloud_init_config_runcmd_controller
   })
 
+  # TODO cmm - needs to come from configuration
   network_interface_path_compute = "pci-0000:00:04.0"
 
   cloud_init_config_compute = merge(local.cloud_init_config_template, {
@@ -476,47 +478,99 @@ resource "google_service_account" "cml_service_account" {
   display_name = "Cisco Modeling Labs Service Account"
 }
 
+# Allow CML to write logs at a project level
+resource "google_project_iam_member" "cml_iam_member_logging_logwriter" {
+  project = var.options.cfgs.gcp.project
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.cml_service_account.email}"
+}
+
+# Allow CML to write metrics at a project level
+resource "google_project_iam_member" "cml_iam_member_monitoring_metricwriter" {
+  project = var.options.cfg.gcp.project
+  role    = "roles/monitoring.metricWriter"
+  member  = "serviceAccount:${google_service_account.cml_service_account.email}"
+}
+
 data "google_storage_bucket" "cml_bucket" {
   name = var.options.cfg.gcp.bucket
 }
 
-resource "google_tags_tag_key" "cml_tag_network_key" {
+resource "google_tags_tag_key" "cml_tag_cml_key" {
   parent      = "projects/${var.options.cfg.gcp.project}"
-  short_name  = "Network"
-  description = "For identifying Network resources"
+  short_name  = "cml"
+  description = "For identifying CML resources"
   purpose     = "GCE_FIREWALL"
   purpose_data = {
     network = "${var.options.cfg.gcp.project}/${google_compute_network.cml_network.name}"
   }
 }
 
-resource "google_tags_tag_value" "cml_tag_network_cml" {
-  parent      = "tagKeys/${google_tags_tag_key.cml_tag_network_key.name}"
-  short_name  = "cml"
-  description = "For identifying CML instances"
+resource "google_tags_tag_value" "cml_tag_cml_controller" {
+  parent      = "tagKeys/${google_tags_tag_key.cml_tag_cml_key.name}"
+  short_name  = "controller"
+  description = "For identifying CML controllers"
+}
+
+resource "google_tags_tag_value" "cml_tag_cml_compute" {
+  parent      = "tagKeys/${google_tags_tag_key.cml_tag_cml_key.name}"
+  short_name  = "compute"
+  description = "For identifying CML computes"
 }
 
 resource "google_storage_bucket_iam_member" "cml_bucket_iam_member" {
   bucket = data.google_storage_bucket.cml_bucket.name
-  # TODO cmm - FIXME
-  #role = "roles/storage.objectViewer"
-  #role   = "roles/storage.objectUser"
-  role   = "roles/storage.admin"
+  role = "roles/storage.objectViewer"
   member = "serviceAccount:${google_service_account.cml_service_account.email}"
 }
 
+data "google_compute_network" "cml_network" {
+  name = var.options.gcp.network_name
+  count = var.options.gcp.network_name == null ? 1 : 0
+}
+
 resource "google_compute_network" "cml_network" {
-  name                    = "cml-network"
-  auto_create_subnetworks = false
-  mtu                     = 8896
+  count = var.options.gcp.network_name == null ? 0 : 1
+  name                            = var.options.gcp.network_name
+  auto_create_subnetworks         = false
+  mtu                             = 8896
+  delete_default_routes_on_create = true
+  enable_ula_internal_ipv6        = try(var.options.cfg.gcp.internal_v6_ula_cidr == null) ? true : false
+  internal_ipv6_range             = try(var.options.cfg.gcp.internal_v6_ula_cidr != null) ? var.options.cfg.gcp.internal_v6_ula_cidr : null
+}
+
+# Allow only select machines, e.g. controller, access to the Internet over IPv4
+resource "google_compute_route" "cml_route_default_v4" {
+  name             = "cml-route-default-v4"
+  network          = google_compute_network.cml_network.id
+  dest_range       = "0.0.0.0/0"
+  priority         = 100
+  next_hop_gateway = "default-internet-gateway"
+  tags = [
+    "has-internet-access"
+  ]
+}
+
+# Allow only select machines, e.g. controller, access to the Internet over IPv6
+resource "google_compute_route" "cml_route_default_v6" {
+  name             = "cml-route-default-v6"
+  network          = google_compute_network.cml_network.id
+  dest_range       = "::/0"
+  priority         = 100
+  next_hop_gateway = "default-internet-gateway"
+  tags = [
+    "has-internet-access"
+  ]
 }
 
 resource "google_compute_subnetwork" "cml_subnet" {
-  name             = "cml-subnet"
-  network          = google_compute_network.cml_network.id
-  ip_cidr_range    = var.options.cfg.gcp.subnet_cidr
-  stack_type       = "IPV4_IPV6"
-  ipv6_access_type = "EXTERNAL"
+  name                       = "cml-subnet"
+  network                    = google_compute_network.cml_network.id
+  ip_cidr_range              = var.options.cfg.gcp.subnet_cidr
+  stack_type                 = "IPV4_IPV6"
+  ipv6_access_type           = "EXTERNAL"
+  private_ip_google_access   = true
+  private_ipv6_google_access = true
 
   #log_config {
   #  aggregation_interval = "INTERVAL_5_SEC"
@@ -525,6 +579,31 @@ resource "google_compute_subnetwork" "cml_subnet" {
   #  metadata_fields      = []
   #}
 }
+
+# Regional Managed Proxy
+resource "google_compute_subnetwork" "cml_region_proxy_subnet" {
+  count         = var.options.cfg.gcp.region_proxy_subnet_cidr != null ? 1 : 0
+  name          = "cml-region-proxy-subnet"
+  network       = google_compute_network.cml_network.id
+  ip_cidr_range = var.options.cfg.gcp.region_proxy_subnet_cidr
+  stack_type    = "IPV4_IPV6"
+  purpose       = "REGIONAL_MANAGED_PROXY"
+  role          = "ACTIVE"
+}
+
+# Cross-region Managed Proxy
+resource "google_compute_subnetwork" "cml_global_proxy_subnet" {
+  count         = var.options.cfg.gcp.global_proxy_subnet_cidr != null ? 1 : 0
+  name          = "cml-global-proxy-subnet"
+  network       = google_compute_network.cml_network.id
+  ip_cidr_range = var.options.cfg.gcp.global_proxy_subnet_cidr
+  stack_type    = "IPV4_IPV6"
+  purpose       = "GLOBAL_MANAGED_PROXY"
+  role          = "ACTIVE"
+}
+
+# Private Service Connect
+
 
 resource "google_compute_region_network_firewall_policy" "cml_firewall_policy" {
   name   = "cml-firewall-policy"
@@ -634,7 +713,9 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
     }
   }
 
-  target_service_accounts = [google_service_account.cml_service_account.email]
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_controller.id
+  }
 }
 
 resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cml" {
@@ -677,7 +758,7 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
 
   match {
     src_secure_tags {
-      name = google_tags_tag_value.cml_tag_network_cml.id
+      name = google_tags_tag_value.cml_tag_cml_compute.id
     }
 
     dest_ip_ranges = ["0.0.0.0/0"]
@@ -688,7 +769,9 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
     }
   }
 
-  target_service_accounts = [google_service_account.cml_service_account.email]
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_controller.id
+  }
 }
 
 resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cml_v4_udp" {
@@ -704,7 +787,11 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
 
   match {
     src_secure_tags {
-      name = google_tags_tag_value.cml_tag_network_cml.id
+      name = google_tags_tag_value.cml_tag_cml_controller.id
+    }
+
+    src_secure_tags {
+      name = google_tags_tag_value.cml_tag_cml_compute.id
     }
 
     dest_ip_ranges = ["0.0.0.0/0"]
@@ -715,7 +802,12 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
     }
   }
 
-  target_service_accounts = [google_service_account.cml_service_account.email]
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_controller.id
+  }
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_compute.id
+  }
 }
 
 resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cml_gre" {
@@ -760,9 +852,13 @@ resource "google_compute_instance" "cml_control_instance" {
     allow_public_ip_address = "true"
   }
 
+  tags = [
+    "has-internet-access"
+  ]
+
   params {
     resource_manager_tags = {
-      (google_tags_tag_key.cml_tag_network_key.id) = google_tags_tag_value.cml_tag_network_cml.id
+      (google_tags_tag_key.cml_tag_cml_key.id) = google_tags_tag_value.cml_tag_cml_controller.id
     }
   }
 
@@ -795,8 +891,8 @@ resource "google_compute_instance" "cml_control_instance" {
   }
 
   metadata = {
-    block-project-ssh-keys = try(var.options.cfg.gcp.ssh_key != null) ? true : false
-    ssh-keys               = try(var.options.cfg.gcp.ssh_key != null) ? var.options.cfg.gcp.ssh_key : null
+    block-project-ssh-keys = try(var.options.cfg.gcp.ssh_keys != null) ? true : false
+    ssh-keys               = try(var.options.cfg.gcp.ssh_keys != null) ? var.options.cfg.gcp.ssh_key : null
     user-data              = sensitive(data.cloudinit_config.cml_controller.rendered)
     serial-port-enable     = true
     enable-osconfig        = "TRUE"
@@ -823,7 +919,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   machine_type = var.options.cfg.gcp.compute_machine_type
 
   resource_manager_tags = {
-    (google_tags_tag_key.cml_tag_network_key.id) = google_tags_tag_value.cml_tag_network_cml.id
+    (google_tags_tag_key.cml_tag_cml_key.id) = google_tags_tag_value.cml_tag_cml_compute.id
   }
 
 
@@ -922,4 +1018,12 @@ data "cloudinit_config" "cml_compute" {
     content_type = "text/cloud-config"
     content      = format("#cloud-config\n%s", yamlencode(local.cloud_init_config_compute))
   }
+}
+
+resource "google_compute_route" "cml_routes" {
+  for_each          = var.options.cfg.gcp.cml_route_cidrs
+  name              = "cml-route-${each.key}"
+  network           = google_compute_network.cml_network.id
+  dest_range        = each.value
+  next_hop_instance = google_compute_instance.cml_control_instance.self_link
 }

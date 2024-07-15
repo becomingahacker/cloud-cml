@@ -4,43 +4,28 @@
 # All rights reserved.
 #
 
-resource "google_tags_tag_value" "cml_tag_network_router" {
-  parent      = "tagKeys/${google_tags_tag_key.cml_tag_network_key.name}"
-  short_name  = "router"
-  description = "For identifying routers"
-}
-
 data "google_dns_managed_zone" "cml_zone" {
   name = var.options.cfg.gcp.dns_zone_name
 }
 
 resource "google_compute_network_endpoint_group" "cml_endpoint_group" {
-  name = "cml-endpoint-group"
-  network = google_compute_network.cml_network.id
-  subnetwork = google_compute_subnetwork.cml_subnet.id
-  zone = var.options.cfg.gcp.zone
+  name                  = "cml-endpoint-group"
+  network               = google_compute_network.cml_network.id
+  subnetwork            = google_compute_subnetwork.cml_subnet.id
+  zone                  = var.options.cfg.gcp.zone
   network_endpoint_type = "GCE_VM_IP"
 }
 
 resource "google_compute_network_endpoint" "cml_controller_endpoint" {
   network_endpoint_group = google_compute_network_endpoint_group.cml_endpoint_group.name
-  instance = google_compute_instance.cml_control_instance.name
-  ip_address = google_compute_address.cml_address_internal.address
-}
-
-resource "google_compute_subnetwork" "cml_proxy_subnet" {
-  name          = "cml-proxy-subnet"
-  network       = google_compute_network.cml_network.id
-  ip_cidr_range = var.options.cfg.gcp.proxy_subnet_cidr
-  stack_type    = "IPV4_ONLY"
-  purpose       = "REGIONAL_MANAGED_PROXY"
-  role          = "ACTIVE"
+  instance               = google_compute_instance.cml_control_instance.name
+  ip_address             = google_compute_address.cml_address_internal.address
 }
 
 resource "google_dns_record_set" "cml_controller_dns" {
-  name     = "${var.options.cfg.common.controller_hostname}.${data.google_dns_managed_zone.cml_zone.dns_name}"
-  type     = "A"
-  ttl      = 300
+  name = "${var.options.cfg.common.controller_hostname}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  type = "A"
+  ttl  = 300
 
   managed_zone = data.google_dns_managed_zone.cml_zone.name
 
@@ -98,24 +83,24 @@ resource "google_certificate_manager_certificate_map_entry" "cml_certificate_map
 }
 
 resource "google_compute_security_policy" "cml_security_policy" {
-  name = "cml-security-policy"
+  name        = "cml-security-policy"
   description = "cml-security-policy"
 }
 
 resource "google_compute_security_policy_rule" "cml_security_policy_rule" {
   security_policy = google_compute_security_policy.cml_security_policy.id
-  priority = 1000
-  action = "allow"
-  preview = false
+  priority        = 1000
+  action          = "allow"
+  preview         = false
   match {
     versioned_expr = "SRC_IPS_V1"
-      config {
-        src_ip_ranges = var.options.cfg.common.allowed_ipv4_subnets
+    config {
+      src_ip_ranges = var.options.cfg.common.allowed_ipv4_subnets
     }
   }
   rate_limit_options {
     rate_limit_threshold {
-      count = 1000
+      count        = 1000
       interval_sec = 5
     }
   }
@@ -130,59 +115,59 @@ resource "google_compute_network_endpoint_group" "cml_network_endpoint_group" {
 }
 
 resource "google_compute_region_health_check" "cml_health_check" {
-  name = "cml-health-check"
-  check_interval_sec = 5
-  timeout_sec = 5
-  healthy_threshold = 2
+  name                = "cml-health-check"
+  check_interval_sec  = 5
+  timeout_sec         = 5
+  healthy_threshold   = 2
   unhealthy_threshold = 2
   http_health_check {
     request_path = "/"
-    port = 443
+    port         = 443
   }
 }
 
 resource "google_compute_region_backend_service" "cml_backend_service" {
-  name = "cml-backend-service"
-  protocol = "HTTPS"
-  timeout_sec = 86400
-  port_name = "https"
+  name                            = "cml-backend-service"
+  protocol                        = "HTTPS"
+  timeout_sec                     = 86400
+  port_name                       = "https"
   connection_draining_timeout_sec = 300
-  load_balancing_scheme = "EXTERNAL_MANAGED"
+  load_balancing_scheme           = "EXTERNAL_MANAGED"
 
-  health_checks = [ google_compute_region_health_check.cml_health_check.id ]
+  health_checks = [google_compute_region_health_check.cml_health_check.id]
 
   backend {
-    group = google_compute_network_endpoint_group.cml_endpoint_group.id
-    balancing_mode = "RATE"
-    max_rate = 1000
+    group           = google_compute_network_endpoint_group.cml_endpoint_group.id
+    balancing_mode  = "RATE"
+    max_rate        = 1000
     capacity_scaler = 1.0
   }
 }
 
 resource "google_compute_region_url_map" "cml_url_map" {
-  name = "cml-url-map"
+  name            = "cml-url-map"
   default_service = google_compute_region_backend_service.cml_backend_service.id
 
   host_rule {
-    hosts = var.options.cfg.gcp.load_balancer_fqdns
+    hosts        = var.options.cfg.gcp.load_balancer_fqdns
     path_matcher = "cml-path-matcher"
   }
 
   path_matcher {
-    name = "cml-path-matcher"
+    name            = "cml-path-matcher"
     default_service = google_compute_region_backend_service.cml_backend_service.id
 
     path_rule {
-      paths = ["/"]
+      paths   = ["/"]
       service = google_compute_region_backend_service.cml_backend_service.id
     }
   }
 }
 
 resource "google_compute_region_target_https_proxy" "cml_https_proxy" {
-  name                             = "cml-https-proxy"
-  url_map                          = google_compute_region_url_map.cml_url_map.id
-  certificate_manager_certificates =  [
+  name    = "cml-https-proxy"
+  url_map = google_compute_region_url_map.cml_url_map.id
+  certificate_manager_certificates = [
     google_certificate_manager_certificate.cml_certificate.id
   ]
 }
@@ -222,8 +207,8 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   }
 
   metadata = {
-    block-project-ssh-keys = try(var.options.cfg.gcp.ssh_key != null) ? true : false
-    ssh-keys               = try(var.options.cfg.gcp.ssh_key != null) ? var.options.cfg.gcp.ssh_key : null
+    block-project-ssh-keys = try(var.options.cfg.gcp.ssh_keys != null) ? true : false
+    ssh-keys               = try(var.options.cfg.gcp.ssh_keys != null) ? var.options.cfg.gcp.ssh_key : null
     user-data              = sensitive(data.cloudinit_config.cml_compute.rendered)
     serial-port-enable     = true
   }
@@ -243,9 +228,9 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   }
 
   scheduling {
-    preemptible = true
-    automatic_restart = false
-    provisioning_model = "SPOT"
+    preemptible                 = true
+    automatic_restart           = false
+    provisioning_model          = "SPOT"
     instance_termination_action = "STOP"
   }
 }
@@ -263,9 +248,3 @@ resource "google_compute_instance_group_manager" "cml_compute_instance_group_man
   target_size = var.options.cfg.gcp.number_of_spot_compute_nodes
 }
 
-resource "google_compute_route" "cml_route_virbr1" {
-  name         = "cml-route-virbr1"
-  network      = google_compute_network.cml_network.id
-  dest_range   = "100.64.1.0/24"
-  next_hop_instance = google_compute_instance.cml_control_instance.self_link
-}
