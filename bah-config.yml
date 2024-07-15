@@ -45,8 +45,10 @@ gcp:
   # inherit from the project's metadata.  Automatically creates user with sudo
   # privileges.  NOTE: The controller should listen on SSH port 1122 for these
   # credentials.  SSH port 22 is used for the built-in CML console server.
+  #
   # Format: <user>:<ssh-key-type> <ssh public key> [<optional comment>]
   # e.g. 
+  #
   # ssh_keys: |
   #   cml_user:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGDAqIBESzn9J9rdSLarhyU6GNycV+43DkdkNzSgfLrP
   #   cml_admin:ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFogojMnu6vXM1G1sMQv3boRvs6PxpUTIUw/GI7QrTaH
@@ -56,24 +58,29 @@ gcp:
   ssh_keys:
 
   # Google Cloud Platform project, region, and availablility zone.  Required.
-  # Note that zone 'us-east1-a' doesn't exist, or isn't available to you.
+  # Note that the zone 'us-east1-a' doesn't exist, or isn't available to you.
   # This zone is only used for controller, and the compute nodes will be spread
   # across available zones in the region. 
   project: gcp-asigbahgcp-nprd-47930
   region: us-east1
   zone: us-east1-b
 
-  # CML service account ID.  If left empty, a new service account will be created
-  # using a 'cml-service-account-' and a random suffix.
+  # CML service account ID to use.  If left empty, a new service account will be
+  # created using 'cml-service-account-' and a random suffix.  Otherwise
+  # service_account_id must match an existing service account.
   service_account_id: cml-service-account
 
+  # Google Cloud Storage bucket for machine images.  Required.  The bucket must contain
+  # cml2 packages and refplat images.
+  bucket: bah-machine-images
+ 
   # CML Network name.  If left empty, a new network will be created with a the
   # name 'cml-network-', and a random suffix.  Otherwise network_name must
   # match an existing network.
   network_name: cml-network
 
   # IPv6 Unique Local Address (ULA) CIDR block.  Used for internal CML
-  # communications between nodes.  Must be a /48.  Leave empty to have Google 
+  # communications between machines.  Must be a /48.  Leave empty to have Google 
   # create one for you, or use an existing network.  In either case of creating
   # a new network or using an existing network, and not using an all-in-one 
   # deployment, a ULA is required. 
@@ -205,13 +212,8 @@ gcp:
       # TODO cmm - IPv6 is currently not working
       ipv6_access_type: internal
 
-
-  # Google Cloud Storage bucket for machine images.  Required.  The bucket must contain
-  # cml2 packages and refplat images.
-  bucket: bah-machine-images
-  
-  # Controller machine type.  4 VCPUs or higher is required.
-  #controller_machine_type: n2-highmem-2
+  # Controller machine type.  4 VCPUs or higher are required.
+  #controller_machine_type: n2-highmem-4
   controller_machine_type: n2-standard-4
 
   # This varies based on machine type.  You should be fairly safe using these
@@ -246,15 +248,16 @@ gcp:
   # compute_machine_provisioning_model is 'on-demand'.  If still specified and
   # compute_machine_provisioning_model is 'spot', this value will be used to create
   # an instance group with zero instances for easy scale-up of reliable machines.
-  #on_demand_compute_machine_type: n2-standard-4
-  #on_demand_compute_machine_type: n2-highmem-4
-  on_demand_compute_machine_type: n2-highmem-32
+  #compute_on_demand_machine_type: n2-standard-4
+  #compute_on_demand_machine_type: n2-highmem-4
+  compute_on_demand_machine_type: n2-highmem-32
 
   # Spot compute machine type.  Required if compute_machine_provisioning_model
   # is 'spot'.  If still specified and compute_machine_provisioning_model
   # is 'on-demand', this value will be used to create an instance group with zero
   # instances for easy scale-up of cheap, but unreliable, machines.
-  spot_compute_machine_type: n2-highmem-4
+  #compute_spot_machine_type: n2-highmem-32
+  compute_spot_machine_type: n2-highmem-4
 
   # This varies based on machine type.  You should be fairly safe using these
   # with N2 series.
@@ -264,6 +267,7 @@ gcp:
 common:
   disk_size: 128
   controller_hostname: cml-controller
+  # SSH key_name is not supported on GCP and is ignored.
   key_name: ssh-key-name
   allowed_ipv4_subnets:
     # GCE cml-subnet
