@@ -27,7 +27,14 @@ provider "google" {
 }
 
 module "gcp" {
-  source  = "./gcp"
-  count   = var.cfg.target == "gcp" ? 1 : 0
-  options = local.options
+  source = "./gcp"
+  count  = var.cfg.target == "gcp" ? 1 : 0
+  options = merge(
+    local.options,
+    {
+      # TODO cmm - Override the default cml provisioning script, for now.
+      # Integrate with main cml.sh script later.
+      cml = file("${path.module}/data/cml-gcp.sh")
+    }
+  )
 }
