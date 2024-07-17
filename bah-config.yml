@@ -68,7 +68,8 @@ gcp:
   # CML service account ID to use.  If left empty, a new service account will be
   # created using 'cml-service-account-' and a random suffix.  Otherwise
   # service_account_id must match an existing service account.
-  service_account_id: cml-service-account
+  #service_account_id: cml-service-account
+  service_account_id:
 
   # Google Cloud Storage bucket for machine images.  Required.  The bucket must contain
   # cml2 packages and refplat images.
@@ -77,7 +78,7 @@ gcp:
   # CML Network name.  If left empty, a new network will be created with a the
   # name 'cml-network-', and a random suffix.  Otherwise network_name must
   # match an existing network.
-  network_name: cml-network
+  network_name:
 
   # IPv6 Unique Local Address (ULA) CIDR block.  Used for internal CML
   # communications between machines.  Must be a /48.  Leave empty to have Google 
@@ -233,7 +234,7 @@ gcp:
   #
   # IMPORTANT NOTE: Spot instances may be terminated at any time by Google Cloud,
   # and existing node state MUST be wiped and data WILL BE LOST.  An advantage of
-  # spot instances is that they are far cheaper than on-demand instances.
+  # spot instances is that they are far less expensive than on-demand instances.
   #
   compute_machine_provisioning_model: on-demand
 
@@ -255,7 +256,7 @@ gcp:
   # Spot compute machine type.  Required if compute_machine_provisioning_model
   # is 'spot'.  If still specified and compute_machine_provisioning_model
   # is 'on-demand', this value will be used to create an instance group with zero
-  # instances for easy scale-up of cheap, but unreliable, machines.
+  # instances for easy scale-up of inexpensive, but unreliable, machines.
   #compute_spot_machine_type: n2-highmem-32
   compute_spot_machine_type: n2-highmem-4
 
@@ -272,6 +273,7 @@ common:
   allowed_ipv4_subnets:
     # GCE cml-subnet
     - "10.10.0.0/16"
+    # TODO cmm - these should be integrated into the terraform code if the load balancer is enabled
     # GCE Health Chekers
     - "35.191.0.0/16"
     - "209.85.152.0/22"
@@ -288,7 +290,7 @@ common:
     # ASIG
     - "64.100.197.0/24"
     - "64.100.220.0/23"
-  # PaTTY is not supported on GCP.  Must be set to 'false'.
+  # PaTTY is not supported on GCP.  Must be set to 'false' in this case.
   enable_patty: false
 
 cluster:

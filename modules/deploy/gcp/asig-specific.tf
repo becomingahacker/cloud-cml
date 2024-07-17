@@ -10,7 +10,7 @@ data "google_dns_managed_zone" "cml_zone" {
 
 resource "google_compute_network_endpoint_group" "cml_endpoint_group" {
   name                  = "cml-endpoint-group"
-  network               = google_compute_network.cml_network.id
+  network               = local.cml_network.id
   subnetwork            = google_compute_subnetwork.cml_subnet.id
   zone                  = var.options.cfg.gcp.zone
   network_endpoint_type = "GCE_VM_IP"
@@ -108,7 +108,7 @@ resource "google_compute_security_policy_rule" "cml_security_policy_rule" {
 
 resource "google_compute_network_endpoint_group" "cml_network_endpoint_group" {
   name                  = "cml-lb-neg"
-  network               = google_compute_network.cml_network.id
+  network               = local.cml_network.id
   subnetwork            = google_compute_subnetwork.cml_subnet.id
   zone                  = var.options.cfg.gcp.zone
   network_endpoint_type = "GCE_VM_IP_PORT"
@@ -175,10 +175,10 @@ resource "google_compute_region_target_https_proxy" "cml_https_proxy" {
 # SPOT instances that can be preempted at any time.  Cheaper, but less reliable.
 resource "google_compute_region_instance_template" "cml_compute_region_instance_template_spot" {
   name_prefix  = "${var.options.cfg.cluster.compute_hostname_prefix}-spot"
-  machine_type = var.options.cfg.gcp.spot_compute_machine_type
+  machine_type = var.options.cfg.gcp.compute_spot_machine_type
 
   resource_manager_tags = {
-    (google_tags_tag_key.cml_tag_network_key.id) = google_tags_tag_value.cml_tag_network_cml.id
+    (google_tags_tag_key.cml_tag_cml_key.id) = google_tags_tag_value.cml_tag_cml_compute.id
   }
 
   disk {
@@ -190,7 +190,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   can_ip_forward = true
 
   network_interface {
-    network    = google_compute_network.cml_network.id
+    network    = local.cml_network.id
     subnetwork = google_compute_subnetwork.cml_subnet.id
     # Should not need an external IP
     #access_config {
@@ -202,7 +202,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   }
 
   service_account {
-    email  = google_service_account.cml_service_account.email
+    email  = local.cml_service_account.email
     scopes = ["cloud-platform"]
   }
 
@@ -245,6 +245,6 @@ resource "google_compute_instance_group_manager" "cml_compute_instance_group_man
     instance_template = google_compute_region_instance_template.cml_compute_region_instance_template_spot.id
   }
 
-  target_size = var.options.cfg.gcp.number_of_spot_compute_nodes
+  target_size = var.options.cfg.gcp.compute_machine_provisioning_model == "spot" ? var.options.cfg.cluster.number_of_compute_nodes : 0
 }
 

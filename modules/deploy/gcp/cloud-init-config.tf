@@ -158,7 +158,7 @@ locals {
     ]
   )
 
-  cloud_init_libvirt_networks = [for network_name, config in var.options.cfg.gcp.cml_custom_external_connections :
+  cloud_init_config_libvirt_networks = [for network_name, config in var.options.cfg.gcp.cml_custom_external_connections :
     {
       path        = "/provision/net-${network_name}.xml"
       owner       = "root:root"
@@ -170,9 +170,9 @@ locals {
           <bridge name='${config.bridge_name}' stp='off' delay='0'/>
           <mtu size="%{if config.mtu == null}${local.cml_network.mtu}%{else}${config.mtu}%{endif}"/>
           %{if config.mac_address != null}<mac address="${config.mac_address}"/>%{endif}
-          <ip address='${network.ip}' netmask='${network.netmask}'>
+          <ip address='${config.ip}' netmask='${config.netmask}'>
             <dhcp>
-              <range start='${network.start}' end='${network.end}'/>
+              <range start='${config.start}' end='${config.end}'/>
             </dhcp>
           </ip>
         </network>
@@ -204,14 +204,14 @@ locals {
         EOF
       },
       {
-        path        = "/etc/systemd/network/10-${var.cfg.gcp.controller_primary_interface_name}.link"
+        path        = "/etc/systemd/network/10-${var.options.cfg.gcp.controller_primary_interface_name}.link"
         owner       = "root:root"
         permissions = "0644"
         content     = <<-EOF
           [Match]
-          Path=pci-${var.cfg.gcp.controller_primary_interface_pci_path}
+          Path=pci-${var.options.cfg.gcp.controller_primary_interface_pci_path}
           [Link]
-          Name=${var.cfg.gcp.controller_primary_interface_name}
+          Name=${var.options.cfg.gcp.controller_primary_interface_name}
           WakeOnLan=off
           MTUBytes=${local.cml_network.mtu}
         EOF
@@ -243,10 +243,10 @@ locals {
         owner       = "root:root"
         permissions = "0640"
         content     = <<-EOF
-          router bgp 65001
+          router bgp ${local.cluster_bgp_as}
            bgp router-id ${google_compute_address.cml_address_internal.address}
            neighbor VTEP peer-group
-           neighbor VTEP remote-as 65001
+           neighbor VTEP remote-as ${local.cluster_bgp_as}
            bgp listen range ${google_compute_subnetwork.cml_subnet.ip_cidr_range} peer-group VTEP
            !
            address-family l2vpn evpn
@@ -262,8 +262,8 @@ locals {
         EOF
       },
       # Only present on controller
-      cloud_init_config_libvirt_networks
-    ]
+    ],
+    local.cloud_init_config_libvirt_networks
   )
 
   cloud_init_config_write_files_compute = concat(local.cloud_init_config_write_files_template,
@@ -290,7 +290,7 @@ locals {
         EOF
       },
       {
-        path        = "/etc/systemd/network/10-${var.options.gcp.compute_primary_interface_name}.link"
+        path        = "/etc/systemd/network/10-${var.options.cfg.gcp.compute_primary_interface_name}.link"
         owner       = "root:root"
         permissions = "0644"
         content     = <<-EOF
@@ -314,7 +314,7 @@ locals {
           OriginalName=${local.cluster_interface_name}
           [Link]
           Name=${local.cluster_interface_name}
-          MTUBytes=${google_compute_network.cml_network.mtu - 50}
+          MTUBytes=${local.cml_network.mtu - 50}
           MACAddressPolicy=random
         EOF
       },
@@ -329,10 +329,10 @@ locals {
         owner       = "root:root"
         permissions = "0640"
         content     = <<-EOF
-          router bgp 65001
+          router bgp ${local.cluster_bgp_as}
            ! bgp router-id will be the primary interface, fixed in cml.sh
            neighbor VTEP peer-group
-           neighbor VTEP remote-as 65001
+           neighbor VTEP remote-as ${local.cluster_bgp_as}
            neighbor ${google_compute_address.cml_address_internal.address} peer-group VTEP
            !
            address-family l2vpn evpn

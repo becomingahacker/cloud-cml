@@ -27,6 +27,8 @@ locals {
   cluster_vxlan_interface_name = "vxlan0"
   cluster_vxlan_vnid           = "1"
 
+  cluster_bgp_as = 65000
+
   # Specified for ease of troubleshooting on the Controller.   IPv6 link local
   # address computes to fe80::1. Compute bridge MAC addresses are random. 
   cluster_controller_interface_mac = "02:00:00:00:00:01"
@@ -119,13 +121,13 @@ data "google_service_account" "cml_service_account" {
 
 resource "google_service_account" "cml_service_account" {
   count        = var.options.cfg.gcp.service_account_id == null ? 1 : 0
-  account_id   = "cisco-modeling-labs-${var.options.random_id}"
+  account_id   = "cisco-modeling-labs-${var.options.rand_id}"
   display_name = "Cisco Modeling Labs Service Account"
 }
 
 # Allow CML to write logs at a project level
 resource "google_project_iam_member" "cml_iam_member_logging_logwriter" {
-  project = var.options.cfgs.gcp.project
+  project = var.options.cfg.gcp.project
   role    = "roles/logging.logWriter"
   member  = "serviceAccount:${local.cml_service_account.email}"
 }
@@ -143,7 +145,7 @@ data "google_storage_bucket" "cml_bucket" {
 
 resource "google_tags_tag_key" "cml_tag_cml_key" {
   parent      = "projects/${var.options.cfg.gcp.project}"
-  short_name  = "cml-${var.options.random_id}"
+  short_name  = "cml-${var.options.rand_id}"
   description = "For identifying CML resources"
   purpose     = "GCE_FIREWALL"
   purpose_data = {
@@ -170,18 +172,18 @@ resource "google_storage_bucket_iam_member" "cml_bucket_iam_member" {
 }
 
 data "google_compute_network" "cml_network" {
-  name  = var.options.gcp.network_name
-  count = var.options.gcp.network_name == null ? 1 : 0
+  count = var.options.cfg.gcp.network_name != null ? 1 : 0
+  name  = var.options.cfg.gcp.network_name
 }
 
 resource "google_compute_network" "cml_network" {
-  count                           = var.options.gcp.network_name == null ? 0 : 1
-  name                            = "cml-network-${var.options.random_id}"
+  count                           = var.options.cfg.gcp.network_name == null ? 1 : 0
+  name                            = "cml-network-${var.options.rand_id}"
   auto_create_subnetworks         = false
   mtu                             = 8896
   delete_default_routes_on_create = true
-  enable_ula_internal_ipv6        = try(var.options.cfg.gcp.internal_v6_ula_cidr == null) ? true : false
-  internal_ipv6_range             = try(var.options.cfg.gcp.internal_v6_ula_cidr != null) ? var.options.cfg.gcp.internal_v6_ula_cidr : null
+  enable_ula_internal_ipv6        = try(var.options.cfg.gcp.network_internal_v6_ula_cidr == null) ? true : false
+  internal_ipv6_range             = try(var.options.cfg.gcp.network_internal_v6_ula_cidr != null) ? var.options.cfg.gcp.network_internal_v6_ula_cidr : null
 }
 
 # Allow only select machines, e.g. controller, access to the Internet over IPv4
@@ -209,9 +211,9 @@ resource "google_compute_route" "cml_route_default_v6" {
 }
 
 resource "google_compute_subnetwork" "cml_subnet" {
-  name                       = "cml-subnet"
+  name                       = "cml-controller-subnet-${var.options.rand_id}"
   network                    = local.cml_network.id
-  ip_cidr_range              = var.options.cfg.gcp.subnet_cidr
+  ip_cidr_range              = var.options.cfg.gcp.controller_subnet_cidr
   stack_type                 = "IPV4_IPV6"
   ipv6_access_type           = "EXTERNAL"
   private_ip_google_access   = true
@@ -256,7 +258,7 @@ resource "google_compute_region_network_firewall_policy" "cml_firewall_policy" {
 }
 
 resource "google_network_security_address_group" "cml_allowed_subnets_address_group" {
-  name        = "cml-allowed-subnets-${var.options.random_id}"
+  name        = "cml-allowed-subnets-${var.options.rand_id}"
   parent      = "projects/${var.options.cfg.gcp.project}"
   description = "Cisco Modeling Labs address group to filter on sources"
   location    = var.options.cfg.gcp.region
@@ -376,7 +378,7 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
 
   match {
     src_secure_tags {
-      name = google_tags_tag_value.cml_tag_network_cml.id
+      name = google_tags_tag_value.cml_tag_cml_controller.id
     }
 
     dest_ip_ranges = ["::/0"]
@@ -490,7 +492,7 @@ resource "google_compute_address" "cml_address" {
 
 resource "google_compute_instance" "cml_control_instance" {
   name                      = var.options.cfg.common.controller_hostname
-  machine_type              = var.options.cfg.gcp.machine_type
+  machine_type              = var.options.cfg.gcp.controller_machine_type
   allow_stopping_for_update = true
 
   labels = {
@@ -561,7 +563,7 @@ data "cloudinit_config" "cml_controller" {
 
 resource "google_compute_region_instance_template" "cml_compute_region_instance_template" {
   name_prefix  = var.options.cfg.cluster.compute_hostname_prefix
-  machine_type = var.options.cfg.gcp.compute_machine_type
+  machine_type = var.options.cfg.gcp.compute_on_demand_machine_type
 
   resource_manager_tags = {
     (google_tags_tag_key.cml_tag_cml_key.id) = google_tags_tag_value.cml_tag_cml_compute.id
@@ -593,8 +595,8 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   }
 
   metadata = {
-    block-project-ssh-keys = try(var.options.cfg.gcp.ssh_key != null) ? true : false
-    ssh-keys               = try(var.options.cfg.gcp.ssh_key != null) ? var.options.cfg.gcp.ssh_key : null
+    block-project-ssh-keys = try(var.options.cfg.gcp.ssh_keys != null) ? true : false
+    ssh-keys               = try(var.options.cfg.gcp.ssh_keys != null) ? var.options.cfg.gcp.ssh_keys : null
     user-data              = sensitive(data.cloudinit_config.cml_compute.rendered)
     serial-port-enable     = true
     enable-osconfig        = "TRUE"
@@ -635,7 +637,7 @@ resource "google_compute_instance_group_manager" "cml_compute_instance_group_man
   #}
 
   #target_pools = [google_compute_target_pool.appserver.id]
-  target_size = var.options.cfg.cluster.number_of_compute_nodes
+  target_size = var.options.cfg.gcp.compute_machine_provisioning_model == "on-demand" ? var.options.cfg.cluster.number_of_compute_nodes : 0
 
   #named_port {
   #  name = "http"
@@ -665,9 +667,9 @@ data "cloudinit_config" "cml_compute" {
 }
 
 resource "google_compute_route" "cml_routes" {
-  for_each          = var.options.cfg.gcp.cml_route_cidrs
+  for_each          = var.options.cfg.gcp.cml_custom_external_connections
   name              = "cml-route-${each.key}"
   network           = local.cml_network.id
-  dest_range        = each.value
+  dest_range        = each.value.cidr
   next_hop_instance = google_compute_instance.cml_control_instance.self_link
 }
