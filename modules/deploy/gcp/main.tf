@@ -96,7 +96,7 @@ locals {
 
   # Use new or existing network
   cml_network = (
-    var.options.cfg.gcp.network_name == null
+    try(var.options.cfg.gcp.create_network, true) == true
     ) ? (
     google_compute_network.cml_network[0]
     ) : (
@@ -177,38 +177,41 @@ data "google_compute_network" "cml_network" {
 }
 
 resource "google_compute_network" "cml_network" {
-  count                           = var.options.cfg.gcp.network_name == null ? 1 : 0
-  name                            = "cml-network-${var.options.rand_id}"
+  count                           = try(var.options.cfg.gcp.network_create, true) == true ? 1 : 0
+  name                            = try(var.options.cfg.gcp.network_name, null) == null ? "cml-network-${var.options.rand_id}" : var.options.cfg.gcp.network_name
   auto_create_subnetworks         = false
-  mtu                             = 8896
-  delete_default_routes_on_create = true
-  enable_ula_internal_ipv6        = try(var.options.cfg.gcp.network_internal_v6_ula_cidr == null) ? true : false
-  internal_ipv6_range             = try(var.options.cfg.gcp.network_internal_v6_ula_cidr != null) ? var.options.cfg.gcp.network_internal_v6_ula_cidr : null
+  mtu                             = try(var.options.cfg.gcp.network_mtu, null) == null ? 8896 : var.options.cfg.gcp.network_mtu
+  # TODO cmm - route manipulation needed?
+  #delete_default_routes_on_create = true
+  delete_default_routes_on_create = false
+  enable_ula_internal_ipv6        = try(var.options.cfg.gcp.network_internal_v6_ula_cidr, null) == null ? true : false
+  internal_ipv6_range             = try(var.options.cfg.gcp.network_internal_v6_ula_cidr, null) != null ? var.options.cfg.gcp.network_internal_v6_ula_cidr : null
 }
 
-# Allow only select machines, e.g. controller, access to the Internet over IPv4
-resource "google_compute_route" "cml_route_default_v4" {
-  name             = "cml-route-default-v4"
-  network          = local.cml_network.id
-  dest_range       = "0.0.0.0/0"
-  priority         = 100
-  next_hop_gateway = "default-internet-gateway"
-  tags = [
-    "has-internet-access"
-  ]
-}
-
-# Allow only select machines, e.g. controller, access to the Internet over IPv6
-resource "google_compute_route" "cml_route_default_v6" {
-  name             = "cml-route-default-v6"
-  network          = local.cml_network.id
-  dest_range       = "::/0"
-  priority         = 100
-  next_hop_gateway = "default-internet-gateway"
-  tags = [
-    "has-internet-access"
-  ]
-}
+# TODO cmm - route manipulation needed?
+## Allow only select machines, e.g. controller, access to the Internet over IPv4
+#resource "google_compute_route" "cml_route_default_v4" {
+#  name             = "cml-route-default-v4"
+#  network          = local.cml_network.id
+#  dest_range       = "0.0.0.0/0"
+#  priority         = 100
+#  next_hop_gateway = "default-internet-gateway"
+#  tags = [
+#    "has-internet-access-${var.options.rand_id}"
+#  ]
+#}
+#
+## Allow only select machines, e.g. controller, access to the Internet over IPv6
+#resource "google_compute_route" "cml_route_default_v6" {
+#  name             = "cml-route-default-v6"
+#  network          = local.cml_network.id
+#  dest_range       = "::/0"
+#  priority         = 100
+#  next_hop_gateway = "default-internet-gateway"
+#  tags = [
+#    "has-internet-access-${var.options.rand_id}"
+#  ]
+#}
 
 resource "google_compute_subnetwork" "cml_subnet" {
   name                       = "cml-controller-subnet-${var.options.rand_id}"

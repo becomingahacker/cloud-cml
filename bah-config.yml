@@ -74,10 +74,14 @@ gcp:
   # Google Cloud Storage bucket for machine images.  Required.  The bucket must contain
   # cml2 packages and refplat images.
   bucket: bah-machine-images
- 
+
+  # Create a new network.  If set to 'false', the network indicated by
+  # 'network_name' is used.
+  network_create: true
+  
   # CML Network name.  If left empty, a new network will be created with a the
-  # name 'cml-network-', and a random suffix.  Otherwise network_name must
-  # match an existing network.
+  # name 'cml-network-', and a random suffix.  Otherwise network_name must match
+  # an existing network.
   network_name:
 
   # IPv6 Unique Local Address (ULA) CIDR block.  Used for internal CML
@@ -88,10 +92,10 @@ gcp:
   # https://unique-local-ipv6.com/
   network_internal_v6_ula_cidr: fd20:c97:6372:0::/48
 
-  # Network MTU.  Leave empty to use the default of 1460 octets or use the
+  # Network MTU.  Leave empty to use the default of 8896 octets or use the
   # existing network MTU.  1500 octets or higher is recommended.  Max 8896
   # octets.
-  network_mtu: 8896
+  network_mtu:
 
   # CML firewall policy name.  Leave empty to use an existing firewall policy
   # associated with the network indicated above.  VPC firewall rules are not
