@@ -373,6 +373,32 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   }
 }
 
+resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cml_gfe" {
+  action          = "allow"
+  description     = "Cisco Modeling Labs allow HTTPS from Google Front End"
+  direction       = "INGRESS"
+  disabled        = false
+  enable_logging  = false
+  firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
+  priority        = 103
+  region          = var.options.cfg.gcp.region
+  rule_name       = "cml-firewall-rule-cml-gfe-${var.options.rand_id}"
+
+  match {
+    src_ip_ranges = [
+      "130.211.0.0/22",
+      "35.191.0.0/16",
+    ]
+
+    layer4_configs {
+      ip_protocol = "tcp"
+      ports       = ["443"]
+    }
+  }
+
+  target_service_accounts = [local.cml_service_account.email]
+}
+
 resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cml" {
   action          = "allow"
   description     = "Cisco Modeling Labs allow CML services from other CML instances"
@@ -487,6 +513,7 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   target_service_accounts = [local.cml_service_account.email]
 }
 
+
 resource "google_compute_address" "cml_address_internal" {
   name         = "cml-address-internal"
   address_type = "INTERNAL"
@@ -596,7 +623,7 @@ resource "google_compute_health_check" "cml_health_check" {
   healthy_threshold   = 2
   unhealthy_threshold = 2
   tcp_health_check {
-    port = 443
+    port_name = "https"
   }
 }
 
@@ -667,32 +694,8 @@ resource "google_compute_instance_group_manager" "cml_compute_instance_group_man
     instance_template = google_compute_region_instance_template.cml_compute_region_instance_template.id
   }
 
-  #all_instances_config {
-  #  metadata = {
-  #    metadata_key = "metadata_value"
-  #  }
-  #  labels = {
-  #    label_key = "label_value"
-  #  }
-  #}
-
-  #target_pools = [google_compute_target_pool.appserver.id]
   target_size = var.options.cfg.gcp.compute_machine_provisioning_model == "on-demand" ? var.options.cfg.cluster.number_of_compute_nodes : 0
 
-  #named_port {
-  #  name = "http"
-  #  port = 80
-  #}
-
-  #named_port {
-  #  name = "https"
-  #  port = 443
-  #}
-
-  #auto_healing_policies {
-  #  health_check      = google_compute_health_check.autohealing.id
-  #  initial_delay_sec = 300
-  #}
 }
 
 # SPOT instances that can be preempted at any time.  Cheaper, but less reliable.

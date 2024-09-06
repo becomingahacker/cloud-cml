@@ -167,6 +167,8 @@ gcp:
   # https://cloud.google.com/iap/docs/concepts-overview
   enable_iap: true
 
+  # TODO cmm - Remove this, it isn't necessary since connections come from GFE.
+  # I think these are only for internal load balancers.
   # Proxy-only subnets, for external load balancers.  If 'enable_load_balancer'
   # is 'false', this is not required and all four may be left empty.  To use
   # existing subnets, leave 'region_proxy_subnet_cidr' and
@@ -202,6 +204,7 @@ gcp:
       # the network VPC or peer VPCs.
       enable_nat: false
 
+      # TODO cmm - Advertise these to a Cloud Router
       # IPv4 CIDR block.  First address is the gateway, and the rest available 
       # for DHCPv4 or static addressing.
       cidr: 100.64.5.0/24
@@ -288,8 +291,6 @@ common:
     # Google Front End
     - "34.96.0.0/16"
     - "34.127.0.0/16"
-    - "130.211.0.0/22"
-    - "35.191.0.0/16"
     # RTP NAT pool
     - "173.38.117.64/26"
     # cmm
