@@ -79,23 +79,26 @@ gcp:
   # 'network_name' is used.
   network_create: true
   
-  # CML Network name.  If left empty, a new network will be created with a the
-  # name 'cml-network-', and a random suffix.  Otherwise network_name must match
-  # an existing network.
+  # CML Network name.  If network_create is set to true, a new network will be
+  # created with a the name 'cml-network-', and a random suffix.  Otherwise
+  # network_name MUST match an existing network.  The existing network MUST be
+  # created Custom (no automatic subnets across all regions) with an IPv6 ULA
+  # assigned.
   network_name:
 
   # IPv6 Unique Local Address (ULA) CIDR block.  Used for internal CML
-  # communications between machines.  Must be a /48.  Leave empty to have Google 
-  # create one for you, or use an existing network.  In either case of creating
-  # a new network or using an existing network, and not using an all-in-one 
-  # deployment, a ULA is required. 
+  # communications between machines.  MUST be a /48 and MUST be in the range 
+  # fd20::/20.  Leave empty to have Google create one for you, or use an
+  # existing network.  In either case of creating a new network or using an
+  # existing network, and not using an all-in-one deployment, a ULA is required.
   # https://unique-local-ipv6.com/
   network_internal_v6_ula_cidr: fd20:c97:6372:0::/48
 
-  # Network MTU.  Leave empty to use the default of 8896 octets or use the
-  # existing network MTU.  1500 octets or higher is recommended.  Max 8896
-  # octets.
-  network_mtu:
+  # Network MTU.  Leave empty to use the default of 1460 octets.  If not creating
+  # a new network, MUST match the existing network MTU.  May contain the values
+  # 1460, 1500 and 8896.  8896 is recommended to minimize fragmentation of tunneled
+  # packets between nodes.
+  network_mtu: 8896
 
   # CML firewall policy name.  Leave empty to use an existing firewall policy
   # associated with the network indicated above.  VPC firewall rules are not
@@ -240,7 +243,7 @@ gcp:
   # and existing node state MUST be wiped and data WILL BE LOST.  An advantage of
   # spot instances is that they are far less expensive than on-demand instances.
   #
-  compute_machine_provisioning_model: on-demand
+  compute_machine_provisioning_model: spot
 
   # Compute image family.  Provides access to the most recent custom image for
   # the compute machine.  Leave empty to use 'ubuntu-2004-lts'.  Used for both
@@ -285,6 +288,8 @@ common:
     # Google Front End
     - "34.96.0.0/16"
     - "34.127.0.0/16"
+    - "130.211.0.0/22"
+    - "35.191.0.0/16"
     # RTP NAT pool
     - "173.38.117.64/26"
     # cmm
@@ -302,7 +307,7 @@ cluster:
   # No longer used, see the secret manager section below
   #secret: your-secret-password
   allow_vms_on_controller: false
-  number_of_compute_nodes: 0
+  number_of_compute_nodes: 1
   compute_hostname_prefix: cml-compute
   compute_disk_size: 128
 

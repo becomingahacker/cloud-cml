@@ -96,12 +96,16 @@ locals {
 
   # Use new or existing network
   cml_network = (
-    try(var.options.cfg.gcp.create_network, true) == true
+    try(var.options.cfg.gcp.network_create, true) == true
     ) ? (
     google_compute_network.cml_network[0]
     ) : (
     data.google_compute_network.cml_network[0]
   )
+
+  # data.google_compute_network won't return the existing MTU, so we set it ourselves
+  # https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/compute_network
+  cml_network_mtu = try(var.options.cfg.gcp.network_mtu, null) == null ? 1460 : var.options.cfg.gcp.network_mtu
 }
 
 data "google_compute_zones" "cml_available_zones" {
@@ -177,15 +181,15 @@ data "google_compute_network" "cml_network" {
 }
 
 resource "google_compute_network" "cml_network" {
-  count                           = try(var.options.cfg.gcp.network_create, true) == true ? 1 : 0
-  name                            = try(var.options.cfg.gcp.network_name, null) == null ? "cml-network-${var.options.rand_id}" : var.options.cfg.gcp.network_name
-  auto_create_subnetworks         = false
-  mtu                             = try(var.options.cfg.gcp.network_mtu, null) == null ? 8896 : var.options.cfg.gcp.network_mtu
+  count                   = try(var.options.cfg.gcp.network_create, true) == true ? 1 : 0
+  name                    = try(var.options.cfg.gcp.network_name, null) == null ? "cml-network-${var.options.rand_id}" : var.options.cfg.gcp.network_name
+  auto_create_subnetworks = false
+  mtu                     = local.cml_network_mtu
   # TODO cmm - route manipulation needed?
   #delete_default_routes_on_create = true
   delete_default_routes_on_create = false
-  enable_ula_internal_ipv6        = try(var.options.cfg.gcp.network_internal_v6_ula_cidr, null) == null ? true : false
-  internal_ipv6_range             = try(var.options.cfg.gcp.network_internal_v6_ula_cidr, null) != null ? var.options.cfg.gcp.network_internal_v6_ula_cidr : null
+  enable_ula_internal_ipv6        = true
+  internal_ipv6_range             = try(var.options.cfg.gcp.network_internal_v6_ula_cidr, null) == null ? null : var.options.cfg.gcp.network_internal_v6_ula_cidr
 }
 
 # TODO cmm - route manipulation needed?
@@ -214,13 +218,12 @@ resource "google_compute_network" "cml_network" {
 #}
 
 resource "google_compute_subnetwork" "cml_subnet" {
-  name                       = "cml-controller-subnet-${var.options.rand_id}"
-  network                    = local.cml_network.id
-  ip_cidr_range              = var.options.cfg.gcp.controller_subnet_cidr
-  stack_type                 = "IPV4_IPV6"
-  ipv6_access_type           = "EXTERNAL"
-  private_ip_google_access   = true
-  private_ipv6_google_access = true
+  name                     = "cml-controller-subnet-${var.options.rand_id}"
+  network                  = local.cml_network.id
+  ip_cidr_range            = var.options.cfg.gcp.controller_subnet_cidr
+  stack_type               = "IPV4_IPV6"
+  ipv6_access_type         = "EXTERNAL"
+  private_ip_google_access = true
 
   #log_config {
   #  aggregation_interval = "INTERVAL_5_SEC"
@@ -232,24 +235,26 @@ resource "google_compute_subnetwork" "cml_subnet" {
 
 # Regional Managed Proxy
 resource "google_compute_subnetwork" "cml_region_proxy_subnet" {
-  count         = var.options.cfg.gcp.region_proxy_subnet_cidr != null ? 1 : 0
-  name          = "cml-region-proxy-subnet"
-  network       = local.cml_network.id
-  ip_cidr_range = var.options.cfg.gcp.region_proxy_subnet_cidr
-  stack_type    = "IPV4_IPV6"
-  purpose       = "REGIONAL_MANAGED_PROXY"
-  role          = "ACTIVE"
+  count            = var.options.cfg.gcp.region_proxy_subnet_cidr != null ? 1 : 0
+  name             = "cml-region-proxy-subnet-${var.options.rand_id}"
+  network          = local.cml_network.id
+  ip_cidr_range    = var.options.cfg.gcp.region_proxy_subnet_cidr
+  stack_type       = "IPV4_IPV6"
+  ipv6_access_type = "INTERNAL"
+  purpose          = "REGIONAL_MANAGED_PROXY"
+  role             = "ACTIVE"
 }
 
 # Cross-region Managed Proxy
 resource "google_compute_subnetwork" "cml_global_proxy_subnet" {
-  count         = var.options.cfg.gcp.global_proxy_subnet_cidr != null ? 1 : 0
-  name          = "cml-global-proxy-subnet"
-  network       = local.cml_network.id
-  ip_cidr_range = var.options.cfg.gcp.global_proxy_subnet_cidr
-  stack_type    = "IPV4_IPV6"
-  purpose       = "GLOBAL_MANAGED_PROXY"
-  role          = "ACTIVE"
+  count            = var.options.cfg.gcp.global_proxy_subnet_cidr != null ? 1 : 0
+  name             = "cml-global-proxy-subnet-${var.options.rand_id}"
+  network          = local.cml_network.id
+  ip_cidr_range    = var.options.cfg.gcp.global_proxy_subnet_cidr
+  stack_type       = "IPV4_IPV6"
+  ipv6_access_type = "INTERNAL"
+  purpose          = "GLOBAL_MANAGED_PROXY"
+  role             = "ACTIVE"
 }
 
 # Private Service Connect
@@ -564,6 +569,37 @@ data "cloudinit_config" "cml_controller" {
   }
 }
 
+resource "google_compute_instance_group" "cml_control_instance_group" {
+  name      = "cml-control-instance-group-${var.options.rand_id}"
+  instances = [google_compute_instance.cml_control_instance.id]
+
+  named_port {
+    name = "http"
+    port = 80
+  }
+
+  named_port {
+    name = "https"
+    port = 443
+  }
+
+  named_port {
+    name = "cockpit"
+    port = 9000
+  }
+}
+
+resource "google_compute_health_check" "cml_health_check" {
+  name                = "cml-health-check-${var.options.rand_id}"
+  check_interval_sec  = 5
+  timeout_sec         = 5
+  healthy_threshold   = 2
+  unhealthy_threshold = 2
+  tcp_health_check {
+    port = 443
+  }
+}
+
 resource "google_compute_region_instance_template" "cml_compute_region_instance_template" {
   name_prefix  = var.options.cfg.cluster.compute_hostname_prefix
   machine_type = var.options.cfg.gcp.compute_on_demand_machine_type
@@ -620,6 +656,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   }
 }
 
+
 resource "google_compute_instance_group_manager" "cml_compute_instance_group_manager" {
   name = "cml-compute-instance-group-manager"
 
@@ -658,6 +695,82 @@ resource "google_compute_instance_group_manager" "cml_compute_instance_group_man
   #}
 }
 
+# SPOT instances that can be preempted at any time.  Cheaper, but less reliable.
+resource "google_compute_region_instance_template" "cml_compute_region_instance_template_spot" {
+  name_prefix  = "${var.options.cfg.cluster.compute_hostname_prefix}-spot"
+  machine_type = var.options.cfg.gcp.compute_spot_machine_type
+
+  resource_manager_tags = {
+    (google_tags_tag_key.cml_tag_cml_key.id) = google_tags_tag_value.cml_tag_cml_compute.id
+  }
+
+  disk {
+    source_image = "${var.options.cfg.gcp.project}/${var.options.cfg.gcp.compute_image_family}"
+    disk_size_gb = var.options.cfg.cluster.compute_disk_size
+  }
+
+  # Use machine as a router & disable source address checking
+  can_ip_forward = true
+
+  network_interface {
+    network    = local.cml_network.id
+    subnetwork = google_compute_subnetwork.cml_subnet.id
+    # Should not need an external IP
+    #access_config {
+    #}
+    ipv6_access_config {
+      network_tier = "PREMIUM"
+    }
+    stack_type = "IPV4_IPV6"
+  }
+
+  service_account {
+    email  = local.cml_service_account.email
+    scopes = ["cloud-platform"]
+  }
+
+  metadata = {
+    block-project-ssh-keys = try(var.options.cfg.gcp.ssh_keys != null) ? true : false
+    ssh-keys               = try(var.options.cfg.gcp.ssh_keys != null) ? var.options.cfg.gcp.ssh_key : null
+    user-data              = sensitive(data.cloudinit_config.cml_compute.rendered)
+    serial-port-enable     = true
+  }
+
+  advanced_machine_features {
+    enable_nested_virtualization = true
+  }
+
+  shielded_instance_config {
+    enable_secure_boot          = true
+    enable_vtpm                 = true
+    enable_integrity_monitoring = false
+  }
+
+  lifecycle {
+    create_before_destroy = false
+  }
+
+  scheduling {
+    preemptible                 = true
+    automatic_restart           = false
+    provisioning_model          = "SPOT"
+    instance_termination_action = "STOP"
+  }
+}
+
+resource "google_compute_instance_group_manager" "cml_compute_instance_group_manager_spot" {
+  name = "cml-compute-instance-group-manager-spot"
+
+  base_instance_name = "${var.options.cfg.cluster.compute_hostname_prefix}-spot"
+  zone               = var.options.cfg.gcp.zone
+
+  version {
+    instance_template = google_compute_region_instance_template.cml_compute_region_instance_template_spot.id
+  }
+
+  target_size = var.options.cfg.gcp.compute_machine_provisioning_model == "spot" ? var.options.cfg.cluster.number_of_compute_nodes : 0
+}
+
 data "cloudinit_config" "cml_compute" {
   gzip          = false
   base64_encode = false # always true if gzip is true
@@ -675,4 +788,228 @@ resource "google_compute_route" "cml_routes" {
   network           = local.cml_network.id
   dest_range        = each.value.cidr
   next_hop_instance = google_compute_instance.cml_control_instance.self_link
+}
+
+data "google_dns_managed_zone" "cml_zone" {
+  name = var.options.cfg.gcp.dns_zone_name
+}
+
+resource "google_dns_record_set" "cml_controller_dns" {
+  name = "${var.options.cfg.common.controller_hostname}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  type = "A"
+  ttl  = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    google_compute_address.cml_address.address
+  ]
+}
+
+resource "google_certificate_manager_dns_authorization" "cml_dns_auth" {
+  for_each = toset(var.options.cfg.gcp.load_balancer_fqdns)
+  name     = "cml-dns-auth-${replace(each.key, ".", "-")}"
+  location = "global"
+  #location    = var.options.cfg.gcp.region
+  description = "cml-dns-auth-${replace(each.key, ".", "-")}"
+  domain      = each.key
+}
+
+resource "google_dns_record_set" "cml_dns_auth" {
+  for_each = toset(var.options.cfg.gcp.load_balancer_fqdns)
+  name     = google_certificate_manager_dns_authorization.cml_dns_auth[each.key].dns_resource_record[0].name
+  type     = google_certificate_manager_dns_authorization.cml_dns_auth[each.key].dns_resource_record[0].type
+  ttl      = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    google_certificate_manager_dns_authorization.cml_dns_auth[each.key].dns_resource_record[0].data
+  ]
+}
+
+resource "google_certificate_manager_certificate" "cml_certificate" {
+  name        = "cml-certificate"
+  description = "cml-certificate"
+  #location    = var.options.cfg.gcp.region
+  #scope = "ALL_REGIONS"
+  scope = "DEFAULT"
+
+  managed {
+    domains = var.options.cfg.gcp.load_balancer_fqdns
+    dns_authorizations = [for i in var.options.cfg.gcp.load_balancer_fqdns :
+    google_certificate_manager_dns_authorization.cml_dns_auth[i].id]
+  }
+  depends_on = [google_dns_record_set.cml_dns_auth]
+}
+
+resource "google_certificate_manager_certificate_map" "cml_certificate_map" {
+  name = "cml-certificate-map"
+}
+
+resource "google_certificate_manager_certificate_map_entry" "cml_certificate_map_entry" {
+  name         = "cml-certificate-map-entry"
+  map          = google_certificate_manager_certificate_map.cml_certificate_map.name
+  certificates = [google_certificate_manager_certificate.cml_certificate.id]
+  matcher      = "PRIMARY"
+}
+
+resource "google_compute_global_address" "cml_load_balancer" {
+  name = "cml-address-load-balancer-${var.options.rand_id}"
+}
+
+resource "google_dns_record_set" "cml_load_balancer_dns" {
+  for_each = toset(var.options.cfg.gcp.load_balancer_fqdns)
+  name     = "${each.key}."
+  type     = "A"
+  ttl      = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    google_compute_global_address.cml_load_balancer.address
+  ]
+}
+
+resource "google_compute_global_address" "cml_load_balancer_v6" {
+  name       = "cml-address-load-balancer-v6-${var.options.rand_id}"
+  ip_version = "IPV6"
+}
+
+resource "google_dns_record_set" "cml_load_balancer_dns_v6" {
+  for_each = toset(var.options.cfg.gcp.load_balancer_fqdns)
+  name     = "${each.key}."
+  type     = "AAAA"
+  ttl      = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    google_compute_global_address.cml_load_balancer_v6.address
+  ]
+}
+
+resource "google_compute_security_policy" "cml_security_policy" {
+  name        = "cml-security-policy-${var.options.rand_id}"
+  description = "cml-security-policy"
+  type        = "CLOUD_ARMOR"
+}
+
+resource "google_compute_security_policy_rule" "cml_security_policy_rule" {
+  security_policy = google_compute_security_policy.cml_security_policy.name
+  description     = "cml-security-policy-rule"
+  priority        = 100
+
+  match {
+    versioned_expr = "SRC_IPS_V1"
+    config {
+      src_ip_ranges = ["0.0.0.0/0"]
+    }
+  }
+
+  #rate_limit_options {
+  # TODO cmm - Needs reasonable defaults
+  #}
+
+  action = "allow"
+  # DO NOT enforce
+  preview = true
+}
+
+resource "google_compute_backend_service" "cml_backend_controller" {
+  name        = "cml-backend-controller-${var.options.rand_id}"
+  description = "cml-backend-controller"
+
+  health_checks = [
+    google_compute_health_check.cml_health_check.id
+  ]
+
+  backend {
+    balancing_mode  = "UTILIZATION"
+    group           = google_compute_instance_group.cml_control_instance_group.id
+    capacity_scaler = 1
+    max_utilization = 1
+  }
+
+  connection_draining_timeout_sec = 300
+
+  enable_cdn = false
+
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  locality_lb_policy    = "ROUND_ROBIN"
+
+  log_config {
+    enable = false
+  }
+
+  protocol         = "HTTPS"
+  port_name        = "https"
+  security_policy  = google_compute_security_policy.cml_security_policy.id
+  session_affinity = "NONE"
+}
+
+resource "google_compute_url_map" "cml_lb_http_redirect" {
+  name        = "cml-lb-http-redirect-${var.options.rand_id}"
+  description = "HTTP to HTTPS redirect for the CML forwarding rule"
+
+  default_url_redirect {
+    https_redirect         = true
+    redirect_response_code = "MOVED_PERMANENTLY_DEFAULT"
+    strip_query            = true
+  }
+}
+
+resource "google_compute_target_http_proxy" "cml_target_http_proxy_redirect" {
+  name    = "cml-target-http-proxy-redirect-${var.options.rand_id}"
+  url_map = google_compute_url_map.cml_lb_http_redirect.id
+}
+
+resource "google_compute_global_forwarding_rule" "cml_http_forwarding_rule" {
+  name                  = "cml-http-forwarding-rule-${var.options.rand_id}"
+  ip_protocol           = "TCP"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  port_range            = "80"
+  target                = google_compute_target_http_proxy.cml_target_http_proxy_redirect.id
+  ip_address            = google_compute_global_address.cml_load_balancer.address
+}
+
+resource "google_compute_global_forwarding_rule" "cml_http_forwarding_rule_v6" {
+  name                  = "cml-http-forwarding-rule-v6-${var.options.rand_id}"
+  ip_protocol           = "TCP"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  port_range            = "80"
+  target                = google_compute_target_http_proxy.cml_target_http_proxy_redirect.id
+  ip_address            = google_compute_global_address.cml_load_balancer_v6.address
+}
+
+resource "google_compute_url_map" "cml_lb_https" {
+  name        = "cml-lb-https-${var.options.rand_id}"
+  description = "cml-lb-https"
+  default_service = google_compute_backend_service.cml_backend_controller.id
+}
+
+resource "google_compute_target_https_proxy" "cml_target_https_proxy" {
+  name    = "cml-target-https-proxy-${var.options.rand_id}"
+  url_map = google_compute_url_map.cml_lb_https.id
+  certificate_map = "//certificatemanager.googleapis.com/${google_certificate_manager_certificate_map.cml_certificate_map.id}"
+  quic_override = "DISABLE"
+  http_keep_alive_timeout_sec = 1200
+}
+
+resource "google_compute_global_forwarding_rule" "cml_https_forwarding_rule" {
+  name                  = "cml-https-forwarding-rule-${var.options.rand_id}"
+  ip_protocol           = "TCP"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  port_range            = "443"
+  target                = google_compute_target_https_proxy.cml_target_https_proxy.id
+  ip_address            = google_compute_global_address.cml_load_balancer.address
+}
+
+resource "google_compute_global_forwarding_rule" "cml_https_forwarding_rule_v6" {
+  name                  = "cml-https-forwarding-rule-v6-${var.options.rand_id}"
+  ip_protocol           = "TCP"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  port_range            = "443"
+  target                = google_compute_target_https_proxy.cml_target_https_proxy.id
+  ip_address            = google_compute_global_address.cml_load_balancer_v6.address
 }

@@ -168,7 +168,7 @@ locals {
           <name>${network_name}</name>
           <forward mode="%{if config.enable_nat}nat%{else}routed%{endif}"/>
           <bridge name='${config.bridge_name}' stp='off' delay='0'/>
-          <mtu size="%{if config.mtu == null}${local.cml_network.mtu}%{else}${config.mtu}%{endif}"/>
+          <mtu size="%{if config.mtu == null}${local.cml_network_mtu}%{else}${config.mtu}%{endif}"/>
           %{if config.mac_address != null}<mac address="${config.mac_address}"/>%{endif}
           <ip address='${config.ip}' netmask='${config.netmask}'>
             <dhcp>
@@ -213,7 +213,7 @@ locals {
           [Link]
           Name=${var.options.cfg.gcp.controller_primary_interface_name}
           WakeOnLan=off
-          MTUBytes=${local.cml_network.mtu}
+          MTUBytes=${local.cml_network_mtu}
         EOF
       },
       {
@@ -228,7 +228,7 @@ locals {
           OriginalName=${local.cluster_interface_name}
           [Link]
           Name=${local.cluster_interface_name}
-          MTUBytes=${local.cml_network.mtu - 50}
+          MTUBytes=${local.cml_network_mtu - 50}
           MACAddress=${local.cluster_controller_interface_mac}
         EOF
       },
@@ -299,7 +299,7 @@ locals {
           [Link]
           Name=${var.options.cfg.gcp.compute_primary_interface_name}
           WakeOnLan=off
-          MTUBytes=${local.cml_network.mtu}
+          MTUBytes=${local.cml_network_mtu}
         EOF
       },
       {
@@ -314,7 +314,7 @@ locals {
           OriginalName=${local.cluster_interface_name}
           [Link]
           Name=${local.cluster_interface_name}
-          MTUBytes=${local.cml_network.mtu - 50}
+          MTUBytes=${local.cml_network_mtu - 50}
           MACAddressPolicy=random
         EOF
       },
@@ -368,7 +368,7 @@ locals {
     # HACK cmm - VXLAN MTU won't be inherited by primary interface, so set explicitly
     # during initial configuration.  It's a race condition or a bug.  Subsequent
     # reboots will be fine.
-    "sleep 5 && ip link set ${local.cluster_vxlan_interface_name} mtu ${local.cml_network.mtu - 50}",
+    "sleep 5 && ip link set ${local.cluster_vxlan_interface_name} mtu ${local.cml_network_mtu - 50}",
     # Pick up new systemd-resolved configuration, enable mDNS
     "systemctl restart systemd-resolved",
 
