@@ -92,7 +92,8 @@ gcp:
   # existing network.  In either case of creating a new network or using an
   # existing network, and not using an all-in-one deployment, a ULA is required.
   # https://unique-local-ipv6.com/
-  network_internal_v6_ula_cidr: fd20:c97:6372:0::/48
+  #network_internal_v6_ula_cidr: fd20:c97:6372:0::/48
+  network_internal_v6_ula_cidr:
 
   # Network MTU.  Leave empty to use the default of 1460 octets.  If not creating
   # a new network, MUST match the existing network MTU.  May contain the values
@@ -146,7 +147,9 @@ gcp:
   # 'enable_load_balancer' is set to 'true' and 'load_balancer_fqdns' has
   # fully-qualified domain names provided, it automatically creates HTTPS
   # certificates.  In addition, if 'dns_zone_name' is provided, A/AAAA
-  # records will be created for the controller hostname.
+  # records will be created for the controller hostname.  A CAA record
+  # is required.
+  # https://cloud.google.com/load-balancing/docs/ssl-certificates/google-managed-certs
   dns_zone_name: becomingahacker-com 
   load_balancer_fqdns:
    - becomingahacker.com
@@ -212,7 +215,7 @@ gcp:
       ip: '100.64.5.1'
       netmask: '255.255.255.0'
       start: '100.64.5.2'
-      end: '100.65.5.254'
+      end: '100.64.5.254'
 
       # IPv6 address type.  'internal' uses a /64 from ULA, 'external' uses a
       # /96 from controller subnet, or 'none'.  In both cases, 'internal' or

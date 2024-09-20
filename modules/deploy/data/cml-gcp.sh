@@ -89,7 +89,8 @@ function base_setup() {
 
         # Fix BGP router ID, otherwise it uses the virbr0 IP, which is the same on all compute nodes
         BGP_ROUTER_ID="$(ip -j route show default | jq -r .[0].prefsrc)"
-        printf "router bgp 65001\nbgp router-id ${BGP_ROUTER_ID}\nend" >> /etc/frr/frr-base.conf 
+        # HACK cmm - BGP AS should be dynamic
+        printf "router bgp 65000\nbgp router-id ${BGP_ROUTER_ID}\nend" >> /etc/frr/frr-base.conf 
         vtysh -f /etc/frr/frr-base.conf
         vtysh -c "copy running-config startup-config"
         systemctl restart frr

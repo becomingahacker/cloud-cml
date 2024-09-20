@@ -240,7 +240,7 @@ resource "google_compute_subnetwork" "cml_region_proxy_subnet" {
   network          = local.cml_network.id
   ip_cidr_range    = var.options.cfg.gcp.region_proxy_subnet_cidr
   stack_type       = "IPV4_IPV6"
-  ipv6_access_type = "INTERNAL"
+  #ipv6_access_type = "INTERNAL"
   purpose          = "REGIONAL_MANAGED_PROXY"
   role             = "ACTIVE"
 }
@@ -252,7 +252,7 @@ resource "google_compute_subnetwork" "cml_global_proxy_subnet" {
   network          = local.cml_network.id
   ip_cidr_range    = var.options.cfg.gcp.global_proxy_subnet_cidr
   stack_type       = "IPV4_IPV6"
-  ipv6_access_type = "INTERNAL"
+  #ipv6_access_type = "INTERNAL"
   purpose          = "GLOBAL_MANAGED_PROXY"
   role             = "ACTIVE"
 }
@@ -330,6 +330,32 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
 
   match {
     src_address_groups = [google_network_security_address_group.cml_allowed_subnets_address_group.id]
+
+    layer4_configs {
+      ip_protocol = "tcp"
+      ports       = ["22", "1122"]
+    }
+  }
+
+  target_service_accounts = [local.cml_service_account.email]
+}
+
+resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_ssh_v6" {
+  action          = "allow"
+  description     = "Cisco Modeling Labs allow SSH from IPv6 allowed subnets"
+  direction       = "INGRESS"
+  disabled        = false
+  enable_logging  = false
+  firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
+  priority        = 104
+  region          = var.options.cfg.gcp.region
+  rule_name       = "cml-firewall-rule-ssh-v6"
+
+  match {
+    # TODO cmm - Needs an address group
+    src_ip_ranges = [
+      "2001:420::/32",
+    ]
 
     layer4_configs {
       ip_protocol = "tcp"
@@ -843,7 +869,9 @@ resource "google_certificate_manager_certificate" "cml_certificate" {
     dns_authorizations = [for i in var.options.cfg.gcp.load_balancer_fqdns :
     google_certificate_manager_dns_authorization.cml_dns_auth[i].id]
   }
-  depends_on = [google_dns_record_set.cml_dns_auth]
+  depends_on = [
+    google_dns_record_set.cml_dns_auth,
+  ]
 }
 
 resource "google_certificate_manager_certificate_map" "cml_certificate_map" {
@@ -853,7 +881,9 @@ resource "google_certificate_manager_certificate_map" "cml_certificate_map" {
 resource "google_certificate_manager_certificate_map_entry" "cml_certificate_map_entry" {
   name         = "cml-certificate-map-entry"
   map          = google_certificate_manager_certificate_map.cml_certificate_map.name
-  certificates = [google_certificate_manager_certificate.cml_certificate.id]
+  certificates = [
+    google_certificate_manager_certificate.cml_certificate.id
+  ]
   matcher      = "PRIMARY"
 }
 

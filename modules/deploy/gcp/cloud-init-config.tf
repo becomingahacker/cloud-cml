@@ -166,7 +166,7 @@ locals {
       content     = <<-EOF
         <network>
           <name>${network_name}</name>
-          <forward mode="%{if config.enable_nat}nat%{else}routed%{endif}"/>
+          <forward mode="%{if config.enable_nat}nat%{else}route%{endif}"/>
           <bridge name='${config.bridge_name}' stp='off' delay='0'/>
           <mtu size="%{if config.mtu == null}${local.cml_network_mtu}%{else}${config.mtu}%{endif}"/>
           %{if config.mac_address != null}<mac address="${config.mac_address}"/>%{endif}
