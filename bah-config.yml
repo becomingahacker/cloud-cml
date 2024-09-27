@@ -212,10 +212,10 @@ gcp:
       # for DHCPv4 or static addressing.
       cidr: 100.64.5.0/24
       # TODO cmm - fix this to use above CIDR
-      ip: '100.64.5.1'
+      ip: '100.64.5.254'
       netmask: '255.255.255.0'
-      start: '100.64.5.2'
-      end: '100.64.5.254'
+      start: '100.64.5.1'
+      end: '100.64.5.253'
 
       # IPv6 address type.  'internal' uses a /64 from ULA, 'external' uses a
       # /96 from controller subnet, or 'none'.  In both cases, 'internal' or
@@ -291,9 +291,12 @@ common:
     - "35.191.0.0/16"
     - "209.85.152.0/22"
     - "209.85.204.0/22"
+    - "130.211.0.0/22"
     # Google Front End
     - "34.96.0.0/16"
     - "34.127.0.0/16"
+    # Google Identity Aware Proxy
+    - "130.211.0.0/22"
     # RTP NAT pool
     - "173.38.117.64/26"
     # cmm
