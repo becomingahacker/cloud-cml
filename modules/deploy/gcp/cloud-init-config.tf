@@ -396,6 +396,17 @@ locals {
       "networkctl reload",
       # TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
       "systemctl disable firewalld",
+      # HACK FIXME cmm - use Google Cloud Filestore instead.  Filestore idmapd is currently broken.
+      "systemctl stop virl2.target",
+      "echo '10.39.0.2:/libvirt_images /var/lib/libvirt/images nfs4 vers=4.1,rw,sec=sys,async,norelatime,noresvport,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=3,_netdev 1 1' >> /etc/fstab",
+      # Still need to export something, so computes are happy on install.
+      "sed -i -e 's#^/var/lib/libvirt/images.*#/srv	fe80::%cluster/64(ro,sync,no_subtree_check,crossmnt,fsid=0,no_root_squash)#' /etc/exports",
+      "exportfs -r",
+      "rm -rf /var/lib/libvirt/images/*",
+      "echo 'Y' > /sys/module/nfs/parameters/nfs4_disable_idmapping",
+      "echo 'options nfs nfs4_disable_idmapping=Y' >> /etc/modprobe.d/nfs.conf",
+      "mount /var/lib/libvirt/images",
+      "systemctl start virl2.target",
     ]
   )
 
@@ -411,6 +422,14 @@ locals {
       "networkctl reload",
       # TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
       "systemctl disable firewalld",
+      # HACK FIXME cmm - use Google Cloud Filestore instead
+      "systemctl stop virl2.target",
+      "umount /var/lib/libvirt/images",
+      "sed -i -e 's#^cml-controller.local.*#10.39.0.2:/libvirt_images /var/lib/libvirt/images nfs4 vers=4.1,rw,sec=sys,async,norelatime,noresvport,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=3,_netdev 1 1#' /etc/fstab",
+      "echo 'Y' > /sys/module/nfs/parameters/nfs4_disable_idmapping",
+      "echo 'options nfs nfs4_disable_idmapping=Y' >> /etc/modprobe.d/nfs.conf",
+      "mount /var/lib/libvirt/images",
+      "systemctl start virl2.target",
     ]
   )
 

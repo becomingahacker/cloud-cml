@@ -190,6 +190,10 @@ resource "google_compute_network" "cml_network" {
   delete_default_routes_on_create = false
   enable_ula_internal_ipv6        = true
   internal_ipv6_range             = try(var.options.cfg.gcp.network_internal_v6_ula_cidr, null) == null ? null : var.options.cfg.gcp.network_internal_v6_ula_cidr
+  # HACK cmm - Keep network around so the peering for Filestore stays around
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # TODO cmm - route manipulation needed?
@@ -231,34 +235,13 @@ resource "google_compute_subnetwork" "cml_subnet" {
   #  metadata             = "INCLUDE_ALL_METADATA"
   #  metadata_fields      = []
   #}
-}
-
-# Regional Managed Proxy
-resource "google_compute_subnetwork" "cml_region_proxy_subnet" {
-  count            = var.options.cfg.gcp.region_proxy_subnet_cidr != null ? 1 : 0
-  name             = "cml-region-proxy-subnet-${var.options.rand_id}"
-  network          = local.cml_network.id
-  ip_cidr_range    = var.options.cfg.gcp.region_proxy_subnet_cidr
-  stack_type       = "IPV4_IPV6"
-  #ipv6_access_type = "INTERNAL"
-  purpose          = "REGIONAL_MANAGED_PROXY"
-  role             = "ACTIVE"
-}
-
-# Cross-region Managed Proxy
-resource "google_compute_subnetwork" "cml_global_proxy_subnet" {
-  count            = var.options.cfg.gcp.global_proxy_subnet_cidr != null ? 1 : 0
-  name             = "cml-global-proxy-subnet-${var.options.rand_id}"
-  network          = local.cml_network.id
-  ip_cidr_range    = var.options.cfg.gcp.global_proxy_subnet_cidr
-  stack_type       = "IPV4_IPV6"
-  #ipv6_access_type = "INTERNAL"
-  purpose          = "GLOBAL_MANAGED_PROXY"
-  role             = "ACTIVE"
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 # Private Service Connect
-
+# TODO cmm
 
 resource "google_compute_region_network_firewall_policy" "cml_firewall_policy" {
   name   = "cml-firewall-policy"
@@ -719,11 +702,10 @@ resource "google_compute_instance_group_manager" "cml_compute_instance_group_man
   zone               = var.options.cfg.gcp.zone
 
   version {
-    instance_template = google_compute_region_instance_template.cml_compute_region_instance_template.id
+    instance_template = var.options.cfg.gcp.compute_machine_provisioning_model == "on-demand" ? google_compute_region_instance_template.cml_compute_region_instance_template.id : google_compute_region_instance_template.cml_compute_region_instance_template_spot.id
   }
 
-  target_size = var.options.cfg.gcp.compute_machine_provisioning_model == "on-demand" ? var.options.cfg.cluster.number_of_compute_nodes : 0
-
+  target_size = var.options.cfg.cluster.number_of_compute_nodes
 }
 
 # SPOT instances that can be preempted at any time.  Cheaper, but less reliable.
@@ -787,19 +769,6 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
     provisioning_model          = "SPOT"
     instance_termination_action = "STOP"
   }
-}
-
-resource "google_compute_instance_group_manager" "cml_compute_instance_group_manager_spot" {
-  name = "cml-compute-instance-group-manager-spot"
-
-  base_instance_name = "${var.options.cfg.cluster.compute_hostname_prefix}-spot"
-  zone               = var.options.cfg.gcp.zone
-
-  version {
-    instance_template = google_compute_region_instance_template.cml_compute_region_instance_template_spot.id
-  }
-
-  target_size = var.options.cfg.gcp.compute_machine_provisioning_model == "spot" ? var.options.cfg.cluster.number_of_compute_nodes : 0
 }
 
 data "cloudinit_config" "cml_compute" {
