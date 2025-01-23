@@ -192,7 +192,8 @@ resource "google_compute_network" "cml_network" {
   internal_ipv6_range             = try(var.options.cfg.gcp.network_internal_v6_ula_cidr, null) == null ? null : var.options.cfg.gcp.network_internal_v6_ula_cidr
   # HACK cmm - Keep network around so the peering for Filestore stays around
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
+    #prevent_destroy = true
   }
 }
 
@@ -235,9 +236,6 @@ resource "google_compute_subnetwork" "cml_subnet" {
   #  metadata             = "INCLUDE_ALL_METADATA"
   #  metadata_fields      = []
   #}
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # Private Service Connect

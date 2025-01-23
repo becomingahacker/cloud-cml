@@ -223,7 +223,7 @@ gcp:
   controller_primary_interface_pci_path: '0000:00:04.0'
 
   # Controller image family.  Provides access to the most recent custom image
-  # for the control machine.  Leave empty to use 'ubuntu-2004-lts'.
+  # for the control machine.  Leave empty to use 'ubuntu-2404-lts-amd64'.
   # If using a custom image family, an apt update and upgrade will NOT be 
   # performed at install time.  If empty, an apt update and upgrade will be 
   # performed.
@@ -239,7 +239,7 @@ gcp:
   compute_machine_provisioning_model: spot
 
   # Compute image family.  Provides access to the most recent custom image for
-  # the compute machine.  Leave empty to use 'ubuntu-2004-lts'.  Used for both
+  # the compute machine.  Leave empty to use 'ubuntu-2404-lts-amd64'.  Used for both
   # provisioning models.  If using a custom image family, an apt update and
   # upgrade will NOT be performed at install time.  If empty, an apt update and
   # upgrade will be performed.
@@ -372,7 +372,7 @@ app:
   # **No longer used, see the secret manager section above**
   #user: admin
   #pass: your-secret-password
-  software: cml2_2.7.0-4_amd64-20.pkg
+  software: cml2_2.8.0-6_amd64-32.pkg
   # The list must have at least ONE element, this is what the dummy is for in
   # case 00- and 01- are commented out!
   customize:

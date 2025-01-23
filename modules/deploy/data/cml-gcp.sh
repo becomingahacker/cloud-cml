@@ -31,51 +31,6 @@ function setup_pre_gcp() {
 }
 
 function base_setup() {
-
-    ## Check if this device is a controller
-    #if is_controller; then
-    #    # copy node definitions and images to the instance
-    #    VLLI=/var/lib/libvirt/images
-    #    NDEF=node-definitions
-    #    IDEF=virl-base-images
-    #    mkdir -p $VLLI/$NDEF
-
-    #    # copy all node definitions as defined in the provisioned config
-    #    if [ $(jq </provision/refplat '.definitions|length') -gt 0 ]; then
-    #        elems=$(jq </provision/refplat -rc '.definitions|join(" ")')
-    #        for item in $elems; do
-    #            copyfile refplat/$NDEF/$item.yaml $VLLI/$NDEF/
-    #        done
-    #    fi
-
-    #    # copy all image definitions as defined in the provisioned config
-    #    if [ $(jq </provision/refplat '.images|length') -gt 0 ]; then
-    #        elems=$(jq </provision/refplat -rc '.images|join(" ")')
-    #        for item in $elems; do
-    #            mkdir -p $VLLI/$IDEF/$item
-    #            copyfile refplat/$IDEF/$item/ $VLLI/$IDEF $item --recursive
-    #        done
-    #    fi
-
-    #    # if there's no images at this point, copy what's available in the defined
-    #    # cloud storage container
-    #    if [ $(find $VLLI -type f | wc -l) -eq 0 ]; then
-    #        copyfile refplat/ $VLLI/ "" --recursive
-    #    fi
-    #fi
-
-    ## copy CML distribution package from cloud storage into our instance, unpack & install
-    #copyfile ${CFG_APP_SOFTWARE} /provision/
-    #tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
-    #systemctl stop ssh
-    #apt-get install -y /tmp/*.deb
-    #if [ -f /etc/netplan/50-cloud-init.yaml ]; then
-    #    # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
-    #    /provision/interface_fix.py
-    #    systemctl restart network-manager
-    #    netplan apply
-    #fi
-
     if ! is_controller; then
         # Generate a unique compute UUID before installing, otherwise they're the same
         sed -i -e "s/COMPUTE_ID=\".*$/COMPUTE_ID=\"$(uuidgen)\"/" /etc/default/virl2
@@ -136,20 +91,18 @@ function base_setup() {
     fi
 
     # for good measure, apply the network config again
-    netplan apply
+    # FIXME cmm - remove
+    #netplan apply
     systemctl enable --now ssh.service
 
     # clean up software .pkg / .deb packages
     #rm -f /provision/*.pkg /provision/*.deb /tmp/*.deb
 
-    # disable bridge setup in the cloud instance (controller and computes)
-    # (this is a no-op with 2.7.1 as it skips bridge creation entirely)
-    /usr/local/bin/virl2-bridge-setup.py --delete
-    sed -i /usr/local/bin/virl2-bridge-setup.py -e '2iexit()'
-    # remove the CML specific netplan config
-    rm /etc/netplan/00-cml2-base.yaml
+    # remove netplan config residue
+    rm /etc/netplan/*
     # apply to ensure gateway selection below works
-    netplan apply
+    # FIXME cmm - remove
+    #netplan apply
 
     # no PaTTY on computes
     if ! is_controller; then
