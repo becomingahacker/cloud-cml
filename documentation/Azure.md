@@ -1,7 +1,5 @@
 # Azure
 
-Version 0.3.0, April 17 2024
-
 This document explains specific configuration steps to deploy a Cisco Modeling Labs (CML) instance in Azure.
 
 ## General requirements
@@ -45,8 +43,8 @@ The provided subscription ID and the tenant ID need to be configured as Terrafor
 
 { read subID ; read tenantID; } <<< "$(az account list --output=json | jq -r '.[0]|.id,.tenantId')"
 
-export TF_VAR_tenant_id="$tenantID"
-export TF_VAR_subscription_id="$subID"
+export TF_VAR_azure_tenant_id="$tenantID"
+export TF_VAR_azure_subscription_id="$subID"
 ```
 
 The values can be provided directly as well (e.g. copying and pasting them into the script).
@@ -103,9 +101,10 @@ Also ensure, that the layout of the software matches the required layout as spec
 
 Note in the screenshot above:
 
-- the `refplat` folder has the reference platform images
-- the `cml2_2.7.0-4_amd64-20.pkg` package is stored in the folder
+- The `refplat` folder has the reference platform images.
+- The `cml2_2.7.0-4_amd64-20.pkg` package is stored in the folder. The .deb file is included in the pkg file and is no longer needed separately.
 - The `hostname-fullchain.pem` and `hostname-privkey.pem` files contain a certificate/key that, if the hostname part of the filename matches the configured controller hostname, will be installed using the `03-letsencrypt.sh` script.
+- Make sure that the `app.software` config value corresponds to the file name of the CML .pkg package in your storage container.
 
 ## Running the deployment
 

@@ -1,6 +1,6 @@
 #
 # This file is part of Cisco Modeling Labs
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 
@@ -37,6 +37,7 @@ locals {
     copyfile      = var.options.copyfile
     del           = var.options.del
     interface_fix = var.options.interface_fix
+    license       = var.options.license
     extras        = var.options.extras
     hostname      = var.options.cfg.common.controller_hostname
     path          = path.module
@@ -105,7 +106,7 @@ resource "azurerm_network_security_rule" "cml_std" {
   protocol                    = "Tcp"
   source_port_range           = "*"
   destination_port_ranges     = [22, 80, 443, 1122, 9090]
-  source_address_prefix       = "*"
+  source_address_prefixes     = var.options.cfg.common.allowed_ipv4_subnets
   destination_address_prefix  = "*"
   resource_group_name         = data.azurerm_resource_group.cml.name
   network_security_group_name = azurerm_network_security_group.cml.name
@@ -120,7 +121,7 @@ resource "azurerm_network_security_rule" "cml_patty_tcp" {
   protocol                    = "Tcp"
   source_port_range           = "*"
   destination_port_range      = "2000-7999"
-  source_address_prefix       = "*"
+  source_address_prefixes     = var.options.cfg.common.allowed_ipv4_subnets
   destination_address_prefix  = "*"
   resource_group_name         = data.azurerm_resource_group.cml.name
   network_security_group_name = azurerm_network_security_group.cml.name
@@ -135,7 +136,7 @@ resource "azurerm_network_security_rule" "cml_patty_udp" {
   protocol                    = "Udp"
   source_port_range           = "*"
   destination_port_range      = "2000-7999"
-  source_address_prefix       = "*"
+  source_address_prefixes     = var.options.cfg.common.allowed_ipv4_subnets
   destination_address_prefix  = "*"
   resource_group_name         = data.azurerm_resource_group.cml.name
   network_security_group_name = azurerm_network_security_group.cml.name
@@ -145,7 +146,7 @@ resource "azurerm_public_ip" "cml" {
   name                = "cml-pub-ip-${var.options.rand_id}"
   resource_group_name = data.azurerm_resource_group.cml.name
   location            = data.azurerm_resource_group.cml.location
-  allocation_method   = "Dynamic"
+  allocation_method   = "Static"
 }
 
 resource "azurerm_virtual_network" "cml" {
@@ -235,8 +236,8 @@ resource "azurerm_linux_virtual_machine" "cml" {
   # https://canonical-azure.readthedocs-hosted.com/en/latest/azure-explanation/daily-vs-release-images/
   source_image_reference {
     publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-focal"
-    sku       = "20_04-lts"
+    offer     = "ubuntu-24_04-lts"
+    sku       = "minimal"
     version   = "latest"
   }
 

@@ -1,11 +1,9 @@
 #!/bin/bash
-
 #
 # This file is part of Cisco Modeling Labs
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
-
 # :%!shfmt -ci -i 4 -
 # set -x
 # set -e
@@ -16,7 +14,12 @@ source /provision/vars.sh
 
 function setup_pre_aws() {
     export AWS_DEFAULT_REGION=${CFG_AWS_REGION}
-    apt-get install -y awscli
+    apt-get install -y unzip
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip -q awscliv2.zip
+    ./aws/install
+    rm -f awscliv2.zip
+    rm -rf aws/
 }
 
 function setup_pre_azure() {
@@ -25,8 +28,26 @@ function setup_pre_azure() {
     chmod a+x /usr/local/bin/azcopy
 }
 
+<<<<<<< HEAD
 function setup_pre_gcp() {
     return
+=======
+function wait_for_network_manager() {
+    counter=0
+    max_wait=60
+
+    while ! systemctl is-active --quiet NetworkManager && [ $counter -lt $max_wait ]; do
+        echo "Waiting for NetworkManager to become active..."
+        sleep 5
+        counter=$((counter + 5))
+    done
+
+    if systemctl is-active --quiet NetworkManager; then
+        echo "NetworkManager is active."
+    else
+        echo "NetworkManager did not become active after $max_wait seconds."
+    fi
+>>>>>>> dev
 }
 
 function base_setup() {
@@ -67,6 +88,7 @@ function base_setup() {
     copyfile ${CFG_APP_SOFTWARE} /provision/
     tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
     systemctl stop ssh
+<<<<<<< HEAD
     apt-get install -y /tmp/*.deb
     if [ -f /etc/netplan/50-cloud-init.yaml ]; then
         # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
@@ -74,6 +96,26 @@ function base_setup() {
         systemctl restart network-manager
         netplan apply
     fi
+=======
+
+    # install i386 architecture if the version requires it
+    # Package is not installed at this point in time
+    # version=$(dpkg-query --showformat='${Version}' --show cml2)
+    version=$(ls /tmp/cml2_*_amd64.deb | awk -F_ '{print $2}')
+    if dpkg --compare-versions "$version" ge 2.7.0; then
+        dpkg --add-architecture i386
+        apt-get update
+    fi
+
+    # install packages (and NetworkManager, just to be sure it's there)
+    apt-get install -y network-manager /tmp/*.deb
+
+    # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
+    /provision/interface_fix.py
+    systemctl restart NetworkManager
+    netplan apply
+    wait_for_network_manager
+>>>>>>> dev
     # Fix for the headless setup (tty remove as the cloud VM has none)
     sed -i '/^Standard/ s/^/#/' /lib/systemd/system/virl2-initial-setup.service
     touch /etc/.virl2_unconfigured
@@ -104,9 +146,8 @@ function base_setup() {
         exit 1
     fi
 
-    # for good measure, apply the network config again
-    netplan apply
     systemctl enable --now ssh.service
+    wait_for_network_manager
 
     # clean up software .pkg / .deb packages
     rm -f /provision/*.pkg /provision/*.deb /tmp/*.deb
@@ -116,9 +157,10 @@ function base_setup() {
     /usr/local/bin/virl2-bridge-setup.py --delete
     sed -i /usr/local/bin/virl2-bridge-setup.py -e '2iexit()'
     # remove the CML specific netplan config
-    rm /etc/netplan/00-cml2-base.yaml
+    find /etc/netplan/ -maxdepth 1 -type f -name '*.yaml' ! -name '50-cloud-init.yaml' -exec rm -f {} +
     # apply to ensure gateway selection below works
     netplan apply
+    wait_for_network_manager
 
     # no PaTTY on computes
     if ! is_controller; then
@@ -147,7 +189,7 @@ function cml_configure() {
         # Directory doesn't exist - Move the entire .ssh directory
         mv /home/$clouduser/.ssh/ /home/${CFG_SYS_USER}/
     fi
-    chown -R ${CFG_SYS_USER}.${CFG_SYS_USER} /home/${CFG_SYS_USER}/.ssh
+    chown -R ${CFG_SYS_USER}:${CFG_SYS_USER} /home/${CFG_SYS_USER}/.ssh
 
     # disable access for the user but keep it as cloud-init requires it to be
     # present, otherwise one of the final modules will fail.
@@ -158,7 +200,7 @@ function cml_configure() {
     chmod g+r /provision/vars.sh
 
     # Change the ownership of the del.sh script to the sysadmin user
-    chown ${CFG_SYS_USER}.${CFG_SYS_USER} /provision/del.sh
+    chown ${CFG_SYS_USER}:${CFG_SYS_USER} /provision/del.sh
 
     # Check if this device is a controller
     if ! is_controller; then
@@ -171,6 +213,7 @@ function cml_configure() {
         sleep 5
     done
 
+<<<<<<< HEAD
     # TODO: the licensing should use the PCL -- it's there, and it can do it
     # via a small Python script
 
@@ -239,6 +282,11 @@ function cml_configure() {
         -H "accept: application/json" \
         -H "Content-Type: application/json" \
         -d '{"'$ID'":'${CFG_LICENSE_NODES}'}'
+=======
+    # Put the license and users in place
+    export CFG_APP_USER CFG_APP_PASS CFG_LICENSE_NODE CFG_LICENSE_FLAVOR CFG_LICENSE_TOKEN
+    HOME=/var/local/virl2 python3 /provision/license.py
+>>>>>>> dev
 }
 
 function postprocess() {
@@ -257,7 +305,7 @@ function postprocess() {
     fi
 }
 
-echo "### Provisioning via cml.sh starts"
+echo "### Provisioning via cml.sh STARTS $(date)"
 
 # AWS specific (?):
 # For troubleshooting. To allow console access on AWS, the root user needs a
@@ -290,13 +338,18 @@ esac
 # Only run the base setup when there's a provision directory both with
 # Terraform and with Packer but not when deploying an AMI
 if [ -d /provision ]; then
+    echo "### base setup STARTS $(date)"
     base_setup
 fi
 
 # Only do a configure when this is not run within Packer / AMI building
 if [ ! -f /tmp/PACKER_BUILD ]; then
+    echo "### configure STARTS $(date)"
     cml_configure ${CFG_TARGET}
+    echo "### postprocess STARTS $(date)"
     postprocess
     # netplan apply
     # systemctl reboot
 fi
+
+echo "### Provisioning via cml.sh ENDS $(date)"
