@@ -28,10 +28,9 @@ function setup_pre_azure() {
     chmod a+x /usr/local/bin/azcopy
 }
 
-<<<<<<< HEAD
 function setup_pre_gcp() {
     return
-=======
+
 function wait_for_network_manager() {
     counter=0
     max_wait=60
@@ -47,7 +46,6 @@ function wait_for_network_manager() {
     else
         echo "NetworkManager did not become active after $max_wait seconds."
     fi
->>>>>>> dev
 }
 
 function base_setup() {
@@ -88,15 +86,6 @@ function base_setup() {
     copyfile ${CFG_APP_SOFTWARE} /provision/
     tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
     systemctl stop ssh
-<<<<<<< HEAD
-    apt-get install -y /tmp/*.deb
-    if [ -f /etc/netplan/50-cloud-init.yaml ]; then
-        # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
-        /provision/interface_fix.py
-        systemctl restart network-manager
-        netplan apply
-    fi
-=======
 
     # install i386 architecture if the version requires it
     # Package is not installed at this point in time
@@ -115,7 +104,6 @@ function base_setup() {
     systemctl restart NetworkManager
     netplan apply
     wait_for_network_manager
->>>>>>> dev
     # Fix for the headless setup (tty remove as the cloud VM has none)
     sed -i '/^Standard/ s/^/#/' /lib/systemd/system/virl2-initial-setup.service
     touch /etc/.virl2_unconfigured
@@ -213,80 +201,9 @@ function cml_configure() {
         sleep 5
     done
 
-<<<<<<< HEAD
-    # TODO: the licensing should use the PCL -- it's there, and it can do it
-    # via a small Python script
-
-    # Acquire a token
-    attempts=5
-    while [ $attempts -gt 0 ]; do
-        sleep 5
-        TOKEN=$(echo '{"username":"'${CFG_APP_USER}'","password":"'${CFG_APP_PASS}'"}' \  |
-            curl -s -d@- $API/authenticate | jq -r)
-        if [ "$TOKEN" != "Authentication failed!" ]; then
-            break
-        fi
-        echo "no token, trying again ($attempts)"
-        ((attempts--))
-    done
-
-    if [ $attempts -eq 0 ]; then
-        echo "A token was never received... something went wrong!"
-        exit 1
-    fi
-
-    # This is still local, everything below talks to GCH licensing servers
-    curl -s -X "PUT" \
-        "$API/licensing/product_license" \
-        -H "Authorization: Bearer $TOKEN" \
-        -H "accept: application/json" \
-        -H "Content-Type: application/json" \
-        -d '"'${CFG_LICENSE_FLAVOR}'"'
-
-    # licensing, register w/ SSM and check result/compliance
-    attempts=5
-    while [ $attempts -gt 0 ]; do
-        curl -vs -X "POST" \
-            "$API/licensing/registration" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "accept: application/json" \
-            -H "Content-Type: application/json" \
-            -d '{"token":"'${CFG_LICENSE_TOKEN}'","reregister":false}'
-        sleep 5
-        result=$(curl -s -X "GET" \
-            "$API/licensing" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "accept: application/json")
-
-        if [ "$(echo $result | jq -r '.registration.status')" = "COMPLETED" ] && [ "$(echo $result | jq -r '.authorization.status')" = "IN_COMPLIANCE" ]; then
-            break
-        fi
-        echo "no license, trying again ($attempts)"
-        ((attempts--))
-    done
-
-    if [ $attempts -eq 0 ]; then
-        echo "licensing failed!"
-        return 1
-    fi
-
-    # No need to put in node licenses - unavailable
-    if [[ ${CFG_LICENSE_FLAVOR} =~ ^CML_Personal || ${CFG_LICENSE_NODES} == 0 ]]; then
-        return 0
-    fi
-
-    ID="regid.2019-10.com.cisco.CML_NODE_COUNT,1.0_2607650b-6ca8-46d5-81e5-e6688b7383c4"
-    curl -vs -X "PATCH" \
-        "$API/licensing/features" \
-        -H "Authorization: Bearer $TOKEN" \
-        -H "accept: application/json" \
-        -H "Content-Type: application/json" \
-        -d '{"'$ID'":'${CFG_LICENSE_NODES}'}'
-=======
     # Put the license and users in place
     export CFG_APP_USER CFG_APP_PASS CFG_LICENSE_NODE CFG_LICENSE_FLAVOR CFG_LICENSE_TOKEN
     HOME=/var/local/virl2 python3 /provision/license.py
->>>>>>> dev
 }
 
 function postprocess() {
