@@ -758,7 +758,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   }
 
   lifecycle {
-    create_before_destroy = false
+    create_before_destroy = true
   }
 
   scheduling {
