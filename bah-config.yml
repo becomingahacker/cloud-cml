@@ -353,7 +353,7 @@ secret:
 
     smartlicense_token:
       # Only used with dummy secret manager
-      raw_secret: your-smart-licensing-token
+      #raw_secret: your-smart-licensing-token
       # Path to secret, used with both Vault and Conjur:
       path: sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/license_token
       # Used with Vault only:
@@ -372,11 +372,12 @@ app:
   # **No longer used, see the secret manager section above**
   #user: admin
   #pass: your-secret-password
-  software: cml2_2.8.0-6_amd64-32.pkg
+  software: cml2/cml2_2.8.0-6_amd64-32.pkg
   # The list must have at least ONE element, this is what the dummy is for in
   # case 00- and 01- are commented out!
   customize:
     # - 00-patch_vmx.sh
+    - 02-gcp_tweaks.sh
     - 99-dummy.sh
 
 license:

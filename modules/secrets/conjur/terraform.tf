@@ -7,7 +7,7 @@
 terraform {
   required_providers {
     conjur = {
-      source = "localhost/cyberark/conjur"
+      source = "cyberark/conjur"
     }
   }
   required_version = ">= 1.1.0"

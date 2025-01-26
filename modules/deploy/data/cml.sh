@@ -5,8 +5,8 @@
 # All rights reserved.
 #
 # :%!shfmt -ci -i 4 -
-# set -x
-# set -e
+set -x
+set -e
 
 source /provision/common.sh
 source /provision/copyfile.sh
@@ -30,6 +30,7 @@ function setup_pre_azure() {
 
 function setup_pre_gcp() {
     return
+}
 
 function wait_for_network_manager() {
     counter=0
@@ -82,22 +83,28 @@ function base_setup() {
         fi
     fi
 
-    # copy CML distribution package from cloud storage into our instance, unpack & install
-    copyfile ${CFG_APP_SOFTWARE} /provision/
-    tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
-    systemctl stop ssh
+    # Check if cml2 is already installed.  This is the case when we are booting from
+    # a Packer image.
+    if ! dpkg-query -s cml2; then
+        # copy CML distribution package from cloud storage into our instance, unpack & install
+        copyfile ${CFG_APP_SOFTWARE} /provision/
+        tar xvf /provision/`basename ${CFG_APP_SOFTWARE}` --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
+        systemctl stop ssh
 
-    # install i386 architecture if the version requires it
-    # Package is not installed at this point in time
-    # version=$(dpkg-query --showformat='${Version}' --show cml2)
-    version=$(ls /tmp/cml2_*_amd64.deb | awk -F_ '{print $2}')
-    if dpkg --compare-versions "$version" ge 2.7.0; then
-        dpkg --add-architecture i386
-        apt-get update
+        # install i386 architecture if the version requires it
+        # Package is not installed at this point in time
+        # version=$(dpkg-query --showformat='${Version}' --show cml2)
+        version=$(ls /tmp/cml2_*_amd64.deb | awk -F_ '{print $2}')
+        if dpkg --compare-versions "$version" ge 2.7.0; then
+            dpkg --add-architecture i386
+            apt-get update
+        fi
+
+        # install packages (and NetworkManager, just to be sure it's there)
+        apt-get install -y network-manager /tmp/*.deb
+    else
+        systemctl stop ssh
     fi
-
-    # install packages (and NetworkManager, just to be sure it's there)
-    apt-get install -y network-manager /tmp/*.deb
 
     # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
     /provision/interface_fix.py
@@ -106,6 +113,7 @@ function base_setup() {
     wait_for_network_manager
     # Fix for the headless setup (tty remove as the cloud VM has none)
     sed -i '/^Standard/ s/^/#/' /lib/systemd/system/virl2-initial-setup.service
+    # TRIGGER_FILE
     touch /etc/.virl2_unconfigured
     systemctl stop getty@tty1.service
     echo "initial setup start: $(date +'%T.%N')"

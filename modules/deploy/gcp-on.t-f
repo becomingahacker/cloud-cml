@@ -32,9 +32,8 @@ module "gcp" {
   options = merge(
     local.options,
     {
-      # TODO cmm - Override the default cml provisioning script, for now.
-      # Integrate with main cml.sh script later.
-      cml = file("${path.module}/data/cml-gcp.sh")
+      # Override the default cml provisioning script, for now.
+      #cml = file("${path.module}/data/cml-gcp.sh")
     }
   )
 }

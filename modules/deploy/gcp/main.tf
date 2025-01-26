@@ -79,7 +79,7 @@ locals {
   })
 
   cml_config_compute = merge(local.cml_config_template, {
-    # Will update this in cml-gcp.sh
+    # Will update the hostname in 02-gcp_tweaks.sh
     hostname      = ""
     is_controller = false
     is_compute    = true

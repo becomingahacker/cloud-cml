@@ -49,6 +49,12 @@ locals {
       permissions = "0700"
       content     = var.options.interface_fix
     },
+    {
+      path        = "/provision/license.py"
+      owner       = "root:root"
+      permissions = "0700"
+      content     = var.options.license
+    },
     # Disable cloud-init network configuration.  Use systemd-networkd instead
     {
       path        = "/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg"
@@ -387,7 +393,8 @@ locals {
   cloud_init_config_runcmd_controller = concat(local.cloud_init_config_runcmd_template,
     [
       # Install cml
-      "/provision/cml.sh && touch /run/reboot || echo 'CML provisioning failed.  Not rebooting' && false",
+      #"/provision/cml.sh && touch /run/reboot || echo 'CML provisioning failed.  Not rebooting' && false",
+      "/provision/cml.sh || echo 'CML provisioning failed.  Not rebooting' && false",
       # Remove primary interface from NetworkManager, placed by
       # virl2-initial-setup.py.  This will be handled by systemd-networkd instead.
       "rm /etc/NetworkManager/system-connections/* || true",
@@ -396,17 +403,17 @@ locals {
       "networkctl reload",
       # TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
       "systemctl disable firewalld",
-      # HACK FIXME cmm - use Google Cloud Filestore instead.  Filestore idmapd is currently broken.
-      "systemctl stop virl2.target",
-      "echo '10.39.0.2:/libvirt_images /var/lib/libvirt/images nfs4 vers=4.1,rw,sec=sys,async,norelatime,noresvport,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=3,_netdev 1 1' >> /etc/fstab",
-      # Still need to export something, so computes are happy on install.
-      "sed -i -e 's#^/var/lib/libvirt/images.*#/srv	fe80::%cluster/64(ro,sync,no_subtree_check,crossmnt,fsid=0,no_root_squash)#' /etc/exports",
-      "exportfs -r",
-      "rm -rf /var/lib/libvirt/images/*",
-      "echo 'Y' > /sys/module/nfs/parameters/nfs4_disable_idmapping",
-      "echo 'options nfs nfs4_disable_idmapping=Y' >> /etc/modprobe.d/nfs.conf",
-      "mount /var/lib/libvirt/images",
-      "systemctl start virl2.target",
+      ## HACK FIXME cmm - use Google Cloud Filestore instead.  Filestore idmapd is currently broken.
+      #"systemctl stop virl2.target",
+      #"echo '10.39.0.2:/libvirt_images /var/lib/libvirt/images nfs4 vers=4.1,rw,sec=sys,async,norelatime,noresvport,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=3,_netdev 1 1' >> /etc/fstab",
+      ## Still need to export something, so computes are happy on install.
+      #"sed -i -e 's#^/var/lib/libvirt/images.*#/srv	fe80::%cluster/64(ro,sync,no_subtree_check,crossmnt,fsid=0,no_root_squash)#' /etc/exports",
+      #"exportfs -r",
+      #"rm -rf /var/lib/libvirt/images/*",
+      #"echo 'Y' > /sys/module/nfs/parameters/nfs4_disable_idmapping",
+      #"echo 'options nfs nfs4_disable_idmapping=Y' >> /etc/modprobe.d/nfs.conf",
+      #"mount /var/lib/libvirt/images",
+      #"systemctl start virl2.target",
     ]
   )
 
@@ -423,13 +430,13 @@ locals {
       # TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
       "systemctl disable firewalld",
       # HACK FIXME cmm - use Google Cloud Filestore instead
-      "systemctl stop virl2.target",
-      "umount /var/lib/libvirt/images",
-      "sed -i -e 's#^cml-controller.local.*#10.39.0.2:/libvirt_images /var/lib/libvirt/images nfs4 vers=4.1,rw,sec=sys,async,norelatime,noresvport,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=3,_netdev 1 1#' /etc/fstab",
-      "echo 'Y' > /sys/module/nfs/parameters/nfs4_disable_idmapping",
-      "echo 'options nfs nfs4_disable_idmapping=Y' >> /etc/modprobe.d/nfs.conf",
-      "mount /var/lib/libvirt/images",
-      "systemctl start virl2.target",
+      #"systemctl stop virl2.target",
+      #"umount /var/lib/libvirt/images",
+      #"sed -i -e 's#^cml-controller.local.*#10.39.0.2:/libvirt_images /var/lib/libvirt/images nfs4 vers=4.1,rw,sec=sys,async,norelatime,noresvport,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=3,_netdev 1 1#' /etc/fstab",
+      #"echo 'Y' > /sys/module/nfs/parameters/nfs4_disable_idmapping",
+      #"echo 'options nfs nfs4_disable_idmapping=Y' >> /etc/modprobe.d/nfs.conf",
+      #"mount /var/lib/libvirt/images",
+      #"systemctl start virl2.target",
     ]
   )
 

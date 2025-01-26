@@ -1,0 +1,330 @@
+--- a/cml-gcp.sh	2025-01-24 10:45:26
++++ b/cml-gcp.sh	2025-01-24 10:45:26
+@@ -1,15 +1,12 @@
+ #!/bin/bash
+-
+ #
+ # This file is part of Cisco Modeling Labs
+-# Copyright (c) 2019-2024, Cisco Systems, Inc.
++# Copyright (c) 2019-2025, Cisco Systems, Inc.
+ # All rights reserved.
+ #
+-
+ # :%!shfmt -ci -i 4 -
+-# TODO cmm - comment out, as this logs tokens
+-set -x
+-set -e
++# set -x
++# set -e
+ 
+ source /provision/common.sh
+ source /provision/copyfile.sh
+@@ -17,7 +14,12 @@
+ 
+ function setup_pre_aws() {
+     export AWS_DEFAULT_REGION=${CFG_AWS_REGION}
+-    apt-get install -y awscli
++    apt-get install -y unzip
++    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
++    unzip -q awscliv2.zip
++    ./aws/install
++    rm -f awscliv2.zip
++    rm -rf aws/
+ }
+ 
+ function setup_pre_azure() {
+@@ -28,38 +30,80 @@
+ 
+ function setup_pre_gcp() {
+     return
++
++function wait_for_network_manager() {
++    counter=0
++    max_wait=60
++
++    while ! systemctl is-active --quiet NetworkManager && [ $counter -lt $max_wait ]; do
++        echo "Waiting for NetworkManager to become active..."
++        sleep 5
++        counter=$((counter + 5))
++    done
++
++    if systemctl is-active --quiet NetworkManager; then
++        echo "NetworkManager is active."
++    else
++        echo "NetworkManager did not become active after $max_wait seconds."
++    fi
+ }
+ 
+ function base_setup() {
+-    if ! is_controller; then
+-        # Generate a unique compute UUID before installing, otherwise they're the same
+-        sed -i -e "s/COMPUTE_ID=\".*$/COMPUTE_ID=\"$(uuidgen)\"/" /etc/default/virl2
+-        
+-        # Update hostname in the virl2-base-config.yml, otherwise it's localhost
+-        systemctl stop NetworkManager
+-        hostnamectl set-hostname $(cloud-init query local_hostname)
+-        sed -i -e 's/^"hostname":.*$/"hostname": "'$(hostname -s)'"/' /etc/virl2-base-config.yml
+-        systemctl start NetworkManager
+-        cat /etc/virl2-base-config.yml
+ 
+-        # Fix BGP router ID, otherwise it uses the virbr0 IP, which is the same on all compute nodes
+-        BGP_ROUTER_ID="$(ip -j route show default | jq -r .[0].prefsrc)"
+-        # HACK cmm - BGP AS should be dynamic
+-        printf "router bgp 65000\nbgp router-id ${BGP_ROUTER_ID}\nend" >> /etc/frr/frr-base.conf 
+-        vtysh -f /etc/frr/frr-base.conf
+-        vtysh -c "copy running-config startup-config"
+-        systemctl restart frr
+-    else
+-        # Otherwise just load the base config
+-        vtysh -f /etc/frr/frr-base.conf
+-        vtysh -c "copy running-config startup-config"
++    # Check if this device is a controller
++    if is_controller; then
++        # copy node definitions and images to the instance
++        VLLI=/var/lib/libvirt/images
++        NDEF=node-definitions
++        IDEF=virl-base-images
++        mkdir -p $VLLI/$NDEF
+ 
+-        # Start routed external network (100.64.1.0/24)
+-        virsh net-define /provision/net-bah-external.xml
+-        virsh net-autostart bah-external
+-        virsh net-start bah-external
+-    fi        
++        # copy all node definitions as defined in the provisioned config
++        if [ $(jq </provision/refplat '.definitions|length') -gt 0 ]; then
++            elems=$(jq </provision/refplat -rc '.definitions|join(" ")')
++            for item in $elems; do
++                copyfile refplat/$NDEF/$item.yaml $VLLI/$NDEF/
++            done
++        fi
+ 
++        # copy all image definitions as defined in the provisioned config
++        if [ $(jq </provision/refplat '.images|length') -gt 0 ]; then
++            elems=$(jq </provision/refplat -rc '.images|join(" ")')
++            for item in $elems; do
++                mkdir -p $VLLI/$IDEF/$item
++                copyfile refplat/$IDEF/$item/ $VLLI/$IDEF $item --recursive
++            done
++        fi
++
++        # if there's no images at this point, copy what's available in the defined
++        # cloud storage container
++        if [ $(find $VLLI -type f | wc -l) -eq 0 ]; then
++            copyfile refplat/ $VLLI/ "" --recursive
++        fi
++    fi
++
++    # copy CML distribution package from cloud storage into our instance, unpack & install
++    copyfile ${CFG_APP_SOFTWARE} /provision/
++    tar xvf /provision/${CFG_APP_SOFTWARE} --wildcards -C /tmp 'cml2*_amd64.deb' 'patty*_amd64.deb' 'iol-tools*_amd64.deb'
++    systemctl stop ssh
++
++    # install i386 architecture if the version requires it
++    # Package is not installed at this point in time
++    # version=$(dpkg-query --showformat='${Version}' --show cml2)
++    version=$(ls /tmp/cml2_*_amd64.deb | awk -F_ '{print $2}')
++    if dpkg --compare-versions "$version" ge 2.7.0; then
++        dpkg --add-architecture i386
++        apt-get update
++    fi
++
++    # install packages (and NetworkManager, just to be sure it's there)
++    apt-get install -y network-manager /tmp/*.deb
++
++    # Fixing NetworkManager in netplan, and interface association in virl2-base-config.yml
++    /provision/interface_fix.py
++    systemctl restart NetworkManager
++    netplan apply
++    wait_for_network_manager
+     # Fix for the headless setup (tty remove as the cloud VM has none)
+     sed -i '/^Standard/ s/^/#/' /lib/systemd/system/virl2-initial-setup.service
+     touch /etc/.virl2_unconfigured
+@@ -90,19 +134,21 @@
+         exit 1
+     fi
+ 
+-    # for good measure, apply the network config again
+-    # FIXME cmm - remove
+-    #netplan apply
+     systemctl enable --now ssh.service
++    wait_for_network_manager
+ 
+     # clean up software .pkg / .deb packages
+-    #rm -f /provision/*.pkg /provision/*.deb /tmp/*.deb
++    rm -f /provision/*.pkg /provision/*.deb /tmp/*.deb
+ 
+-    # remove netplan config residue
+-    rm /etc/netplan/*
++    # disable bridge setup in the cloud instance (controller and computes)
++    # (this is a no-op with 2.7.1 as it skips bridge creation entirely)
++    /usr/local/bin/virl2-bridge-setup.py --delete
++    sed -i /usr/local/bin/virl2-bridge-setup.py -e '2iexit()'
++    # remove the CML specific netplan config
++    find /etc/netplan/ -maxdepth 1 -type f -name '*.yaml' ! -name '50-cloud-init.yaml' -exec rm -f {} +
+     # apply to ensure gateway selection below works
+-    # FIXME cmm - remove
+-    #netplan apply
++    netplan apply
++    wait_for_network_manager
+ 
+     # no PaTTY on computes
+     if ! is_controller; then
+@@ -131,7 +177,7 @@
+         # Directory doesn't exist - Move the entire .ssh directory
+         mv /home/$clouduser/.ssh/ /home/${CFG_SYS_USER}/
+     fi
+-    chown -R ${CFG_SYS_USER}.${CFG_SYS_USER} /home/${CFG_SYS_USER}/.ssh
++    chown -R ${CFG_SYS_USER}:${CFG_SYS_USER} /home/${CFG_SYS_USER}/.ssh
+ 
+     # disable access for the user but keep it as cloud-init requires it to be
+     # present, otherwise one of the final modules will fail.
+@@ -142,7 +188,7 @@
+     chmod g+r /provision/vars.sh
+ 
+     # Change the ownership of the del.sh script to the sysadmin user
+-    chown ${CFG_SYS_USER}.${CFG_SYS_USER} /provision/del.sh
++    chown ${CFG_SYS_USER}:${CFG_SYS_USER} /provision/del.sh
+ 
+     # Check if this device is a controller
+     if ! is_controller; then
+@@ -155,101 +201,9 @@
+         sleep 5
+     done
+ 
+-    # TODO: the licensing should use the PCL -- it's there, and it can do it
+-    # via a small Python script
+-
+-    # HACK cmm - Set the initial admin password to the saved machine id
+-    PASS="$(cat /provision/saved-machine-id)"
+-    # Acquire a token
+-    attempts=5
+-    while [ $attempts -gt 0 ]; do
+-        sleep 5
+-        TOKEN=$(echo '{"username":"cml2","password":"'${PASS}'"}' \  |
+-            curl -s -d@- $API/authenticate | jq -r)
+-        if [ "$TOKEN" != "Authentication failed!" ]; then
+-            break
+-        fi
+-        echo "no token, trying again ($attempts)"
+-        ((attempts--))
+-    done
+-    if [ $attempts -eq 0 ]; then
+-        echo "A token was never received... something went wrong!"
+-        exit 1
+-    fi
+-
+-    # change to provided name and password
+-    curl -s -X "PATCH" \
+-        "$API/users/00000000-0000-4000-a000-000000000000" \
+-        -H "Authorization: Bearer $TOKEN" \
+-        -H "accept: application/json" \
+-        -H "Content-Type: application/json" \
+-        -d '{"username":"'${CFG_APP_USER}'","password":{"new_password":"'${CFG_APP_PASS}'","old_password":"'${PASS}'"}}'
+-
+-    # Acquire a new token
+-    attempts=5
+-    while [ $attempts -gt 0 ]; do
+-        sleep 5
+-        TOKEN=$(echo '{"username":"'${CFG_APP_USER}'","password":"'${CFG_APP_PASS}'"}' \  |
+-            curl -s -d@- $API/authenticate | jq -r)
+-        if [ "$TOKEN" != "Authentication failed!" ]; then
+-            break
+-        fi
+-        echo "no token, trying again ($attempts)"
+-        ((attempts--))
+-    done
+-
+-    if [ $attempts -eq 0 ]; then
+-        echo "A token was never received... something went wrong!"
+-        exit 1
+-    fi
+-
+-    # This is still local, everything below talks to GCH licensing servers
+-    curl -s -X "PUT" \
+-        "$API/licensing/product_license" \
+-        -H "Authorization: Bearer $TOKEN" \
+-        -H "accept: application/json" \
+-        -H "Content-Type: application/json" \
+-        -d '"'${CFG_LICENSE_FLAVOR}'"'
+-
+-    # licensing, register w/ SSM and check result/compliance
+-    attempts=5
+-    while [ $attempts -gt 0 ]; do
+-        curl -vs -X "POST" \
+-            "$API/licensing/registration" \
+-            -H "Authorization: Bearer $TOKEN" \
+-            -H "accept: application/json" \
+-            -H "Content-Type: application/json" \
+-            -d '{"token":"'${CFG_LICENSE_TOKEN}'","reregister":false}'
+-        sleep 5
+-        result=$(curl -s -X "GET" \
+-            "$API/licensing" \
+-            -H "Authorization: Bearer $TOKEN" \
+-            -H "accept: application/json")
+-
+-        if [ "$(echo $result | jq -r '.registration.status')" = "COMPLETED" ] && [ "$(echo $result | jq -r '.authorization.status')" = "IN_COMPLIANCE" ]; then
+-            break
+-        fi
+-        echo "no license, trying again ($attempts)"
+-        ((attempts--))
+-    done
+-
+-    if [ $attempts -eq 0 ]; then
+-        echo "licensing failed!"
+-        return 1
+-    fi
+-
+-    # No need to put in node licenses - unavailable
+-    if [[ ${CFG_LICENSE_FLAVOR} =~ ^CML_Personal || ${CFG_LICENSE_NODES} == 0 ]]; then
+-        return 0
+-    fi
+-
+-    ID="regid.2019-10.com.cisco.CML_NODE_COUNT,1.0_2607650b-6ca8-46d5-81e5-e6688b7383c4"
+-    curl -vs -X "PATCH" \
+-        "$API/licensing/features" \
+-        -H "Authorization: Bearer $TOKEN" \
+-        -H "accept: application/json" \
+-        -H "Content-Type: application/json" \
+-        -d '{"'$ID'":'${CFG_LICENSE_NODES}'}'
++    # Put the license and users in place
++    export CFG_APP_USER CFG_APP_PASS CFG_LICENSE_NODE CFG_LICENSE_FLAVOR CFG_LICENSE_TOKEN
++    HOME=/var/local/virl2 python3 /provision/license.py
+ }
+ 
+ function postprocess() {
+@@ -268,13 +222,12 @@
+     fi
+ }
+ 
+-echo "### Provisioning via cml.sh starts"
++echo "### Provisioning via cml.sh STARTS $(date)"
+ 
+ # AWS specific (?):
+ # For troubleshooting. To allow console access on AWS, the root user needs a
+ # password. Note: not all instance types / flavors provide a serial console!
+-# TODO cmm - FIXME
+-#echo "root:secret-password-here" | /usr/sbin/chpasswd
++# echo "root:secret-password-here" | /usr/sbin/chpasswd
+ 
+ # Ensure non-interactive Debian package installation
+ APT_OPTS="-o Dpkg::Options::=--force-confmiss -o Dpkg::Options::=--force-confnew"
+@@ -302,13 +255,18 @@
+ # Only run the base setup when there's a provision directory both with
+ # Terraform and with Packer but not when deploying an AMI
+ if [ -d /provision ]; then
++    echo "### base setup STARTS $(date)"
+     base_setup
+ fi
+ 
+ # Only do a configure when this is not run within Packer / AMI building
+ if [ ! -f /tmp/PACKER_BUILD ]; then
++    echo "### configure STARTS $(date)"
+     cml_configure ${CFG_TARGET}
++    echo "### postprocess STARTS $(date)"
+     postprocess
+     # netplan apply
+     # systemctl reboot
+ fi
++
++echo "### Provisioning via cml.sh ENDS $(date)"

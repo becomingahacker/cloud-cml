@@ -6,7 +6,8 @@
 #
 
 import yaml
-
+import os
+import sys
 
 def get_interface_names(netplan_file):
     """Parses the netplan file to extract interface names.
@@ -82,6 +83,12 @@ def main():
     # Configuration paths
     netplan_file = "/etc/netplan/50-cloud-init.yaml"
     virl2_config_file = "/etc/virl2-base-config.yml"
+
+    try:
+        os.stat(netplan_file)
+    except FileNotFoundError:
+        print(f"Netplan file {netplan_file} not found. Doing nothing and returning.")
+        sys.exit(0)
 
     # Get interface names
     interface_names = get_interface_names(netplan_file)
