@@ -333,11 +333,13 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   rule_name       = "cml-firewall-rule-ssh-v6"
 
   match {
-    # TODO cmm - Needs an address group
+    # TODO cmm - Needs an address group and configuration from YAML
     src_ip_ranges = [
       "2001:420::/32",
       # GCP Health Check
       "2600:1901:8001::/48",
+      # cmm 
+      "2600:1700:840:7bc0::/60",
     ]
 
     layer4_configs {

@@ -128,6 +128,7 @@ locals {
         OriginalName=${local.cluster_vxlan_interface_name}
         [Link]
         Name=${local.cluster_vxlan_interface_name}
+        MACAddressPolicy=random
       EOF
     },
     {
@@ -357,6 +358,7 @@ locals {
   cloud_init_config_packages_template = [
     "curl",
     "jq",
+    "network-manager",
     "frr",
   ]
 

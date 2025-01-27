@@ -377,7 +377,6 @@ app:
   # case 00- and 01- are commented out!
   customize:
     # - 00-patch_vmx.sh
-    - 02-gcp_tweaks.sh
     - 99-dummy.sh
 
 license:
