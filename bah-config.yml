@@ -2,8 +2,9 @@
 # REMOVE ME BEFORE MERGE
 #
 
-# at this time, "aws" and "azure" are defined targets
+# at this time, "aws", "azure", and "gcp" are defined targets
 # make sure that you ran the prepare.sh / prepare.bat script!
+# TODO cmm - change to gce?
 target: gcp
 
 aws:
