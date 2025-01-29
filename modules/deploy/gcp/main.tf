@@ -147,6 +147,11 @@ data "google_storage_bucket" "cml_bucket" {
   name = var.options.cfg.gcp.bucket
 }
 
+data "google_storage_bucket" "cml_libvirt_images_bucket" {
+  # HACK cmm - Make bucket name configurable
+  name = "bah-libvirt-images-ue1"
+}
+
 resource "google_tags_tag_key" "cml_tag_cml_key" {
   parent      = "projects/${var.options.cfg.gcp.project}"
   short_name  = "cml-${var.options.rand_id}"
@@ -172,6 +177,12 @@ resource "google_tags_tag_value" "cml_tag_cml_compute" {
 resource "google_storage_bucket_iam_member" "cml_bucket_iam_member" {
   bucket = data.google_storage_bucket.cml_bucket.name
   role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${local.cml_service_account.email}"
+}
+
+resource "google_storage_bucket_iam_member" "cml_libvirt_images_bucket_iam_member" {
+  bucket = data.google_storage_bucket.cml_libvirt_images_bucket.name
+  role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${local.cml_service_account.email}"
 }
 

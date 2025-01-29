@@ -443,7 +443,7 @@ locals {
       # HACK cmm - Specify bucket name
       "sed -i -e 's#^cml-controller.local.*#bah-libvirt-images-ue1 /var/lib/libvirt/images fuse.gcsfuse ro,uid=64055,gid=987,allow_other,_netdev 1 1#' /etc/fstab",
       "systemd daemon-reload",
-      "mount /var/lib/libvirt/images",
+      #"mount /var/lib/libvirt/images",
       # HACK cmm - Allow gcsfuse to work for /var/lib/libvirt/images. Keep the LLD happy.
       "sed -i 's/nfs4/fuse.gcsfuse/' /var/local/virl2/.local/lib/python3.12/site-packages/simple_drivers/low_level_driver/host_statistics.py",
       "systemctl start virl2.target",

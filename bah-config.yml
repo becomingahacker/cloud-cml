@@ -302,7 +302,7 @@ cluster:
   # No longer used, see the secret manager section below
   #secret: your-secret-password
   allow_vms_on_controller: false
-  number_of_compute_nodes: 0
+  number_of_compute_nodes: 2
   compute_hostname_prefix: cml-compute
   compute_disk_size: 128
 
