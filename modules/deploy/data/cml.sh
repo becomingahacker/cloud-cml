@@ -177,15 +177,16 @@ function base_setup() {
     # clean up software .pkg / .deb packages
     rm -f /provision/*.pkg /provision/*.deb /tmp/*.deb
 
-    # disable bridge setup in the cloud instance (controller and computes)
-    # (this is a no-op with 2.7.1 as it skips bridge creation entirely)
-    /usr/local/bin/virl2-bridge-setup.py --delete
-    sed -i /usr/local/bin/virl2-bridge-setup.py -e '2iexit()'
-    # remove the CML specific netplan config
-    find /etc/netplan/ -maxdepth 1 -type f -name '*.yaml' ! -name '50-cloud-init.yaml' -exec rm -f {} +
-    # apply to ensure gateway selection below works
-    netplan apply
-    wait_for_network_manager
+    # FIXME cmm - Move to AWS specific setup.  Not required on GCP.
+    ## disable bridge setup in the cloud instance (controller and computes)
+    ## (this is a no-op with 2.7.1 as it skips bridge creation entirely)
+    #/usr/local/bin/virl2-bridge-setup.py --delete
+    #sed -i /usr/local/bin/virl2-bridge-setup.py -e '2iexit()'
+    ## remove the CML specific netplan config
+    #find /etc/netplan/ -maxdepth 1 -type f -name '*.yaml' ! -name '50-cloud-init.yaml' ! -name '60-cluster.yaml' -exec rm -f {} +
+    ## apply to ensure gateway selection below works
+    #netplan apply
+    #wait_for_network_manager
 
     # no PaTTY on computes
     if ! is_controller; then

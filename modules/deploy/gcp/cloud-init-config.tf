@@ -47,7 +47,12 @@ locals {
       path        = "/provision/interface_fix.py"
       owner       = "root:root"
       permissions = "0700"
-      content     = var.options.interface_fix
+      # Do nothing for GCP.  We don't need to fix interfaces.
+      content = <<-EOF
+        #!/usr/bin/env python3
+        import sys
+        sys.exit(0)
+      EOF
     },
     {
       path        = "/provision/license.py"
@@ -55,18 +60,7 @@ locals {
       permissions = "0700"
       content     = var.options.license
     },
-    # Disable cloud-init network configuration.  Use systemd-networkd instead
-    {
-      path        = "/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg"
-      owner       = "root:root"
-      permissions = "0644"
-      content = yamlencode({
-        network = {
-          config = "disabled"
-        }
-      })
-    },
-    # Enable mDNS
+    # Enable mDNS globally
     {
       path        = "/etc/systemd/resolved.conf.d/mdns.conf"
       owner       = "root:root"
@@ -77,85 +71,36 @@ locals {
         LLMNR=no
       EOF
     },
+    # Enable mDNS on cluster interface
     {
-      path        = "/etc/systemd/network/20-${local.cluster_interface_name}.netdev"
+      path        = "/etc/systemd/network/10-netplan-cluster.network.d/override.conf"
       owner       = "root:root"
       permissions = "0644"
       content     = <<-EOF
-        [NetDev]
-        Name=${local.cluster_interface_name}
-        Kind=bridge
-        [Bridge]
-        VLANFiltering=0
-      EOF
-    },
-    {
-      path        = "/etc/systemd/network/20-${local.cluster_interface_name}.network"
-      owner       = "root:root"
-      permissions = "0644"
-      content     = <<-EOF
-        [Match]
-        Name=${local.cluster_interface_name}
-        [BridgeVLAN]
-        VLAN=1
-        [Link]
-        Multicast=yes
         [Network]
         MulticastDNS=yes
-        LLMNR=no
-        LinkLocalAddressing=ipv6
       EOF
     },
+    # GCS FUSE config file
+    # https://cloud.google.com/storage/docs/cloud-storage-fuse/config-file
     {
-      path        = "/etc/systemd/network/30-${local.cluster_vxlan_interface_name}.netdev"
+      path        = "/etc/gcsfuse/gcsfuse.yaml"
       owner       = "root:root"
       permissions = "0644"
-      content     = <<-EOF
-        [NetDev]
-        Name=${local.cluster_vxlan_interface_name}
-        Kind=vxlan
-        [VXLAN]
-        VNI=${local.cluster_vxlan_vnid}
-        DestinationPort=4789
-      EOF
+      content     = yamlencode({
+        file-cache = {
+          max-size-mb = -1
+          cache-file-for-range-read = false
+        }
+        metadata-cache = {
+          stat-cache-max-size-mb = 32
+          ttl-secs = 3600
+          type-cache-max-size-mb = 4
+        }
+        cache-dir = "/srv/data/gcsfuse-cache"
+      })
     },
-    {
-      path        = "/etc/systemd/network/30-${local.cluster_vxlan_interface_name}.link"
-      owner       = "root:root"
-      permissions = "0644"
-      content     = <<-EOF
-        [Match]
-        OriginalName=${local.cluster_vxlan_interface_name}
-        [Link]
-        Name=${local.cluster_vxlan_interface_name}
-        MACAddressPolicy=random
-      EOF
-    },
-    {
-      path        = "/etc/systemd/network/30-${local.cluster_vxlan_interface_name}.network"
-      owner       = "root:root"
-      permissions = "0644"
-      content     = <<-EOF
-        [Match]
-        Name=${local.cluster_vxlan_interface_name}
-        [Network]
-        BindCarrier=${var.options.cfg.gcp.compute_primary_interface_name}
-        Bridge=${local.cluster_interface_name}
-        LLMNR=no
-        [BridgeVLAN]
-        VLAN=1
-      EOF
-    },
-    # Force all interfaces unmanaged by NetworkManager
-    {
-      path        = "/etc/NetworkManager/conf.d/11-unmanaged.conf"
-      owner       = "root:root"
-      permissions = "0644"
-      content     = <<-EOF
-        [keyfile]
-        unmanaged-devices=*
-      EOF
-    }, ],
+    ],
     [for script in var.options.cfg.app.customize : {
       path        = "/provision/${script}"
       owner       = "root:root"
@@ -175,7 +120,7 @@ locals {
           <name>${network_name}</name>
           <forward mode="%{if config.enable_nat}nat%{else}route%{endif}"/>
           <bridge name='${config.bridge_name}' stp='off' delay='0'/>
-          <mtu size="%{if config.mtu == null}${local.cml_network_mtu}%{else}${config.mtu}%{endif}"/>
+          <mtu size="%{if config.mtu == null}${(local.cml_network_mtu - 50)}%{else}${config.mtu}%{endif}"/>
           %{if config.mac_address != null}<mac address="${config.mac_address}"/>%{endif}
           <ip address='${config.ip}' netmask='${config.netmask}'>
             <dhcp>
@@ -189,61 +134,48 @@ locals {
 
   cloud_init_config_write_files_controller = concat(local.cloud_init_config_write_files_template,
     [
-      # Replace cloud-init network configuration with systemd-networkd
-      # configuration for the cluster bridge
-      {
-        path        = "/etc/systemd/network/10-${var.options.cfg.gcp.controller_primary_interface_name}.network"
-        owner       = "root:root"
-        permissions = "0644"
-        content     = <<-EOF
-          [Match]
-          Name=${var.options.cfg.gcp.controller_primary_interface_name}
-          [Network]
-          # Both v4 and v6
-          DHCP=yes
-          LLMNR=no
-          LinkLocalAddressing=ipv6
-          VXLAN=${local.cluster_vxlan_interface_name}
-          [DHCP]
-          RouteMetric=100
-          # HACK cmm - VXLAN interface won't inherit this MTU, so we set explicitly in link.
-          UseMTU=true
-        EOF
-      },
-      {
-        path        = "/etc/systemd/network/10-${var.options.cfg.gcp.controller_primary_interface_name}.link"
-        owner       = "root:root"
-        permissions = "0644"
-        content     = <<-EOF
-          [Match]
-          Path=pci-${var.options.cfg.gcp.controller_primary_interface_pci_path}
-          [Link]
-          Name=${var.options.cfg.gcp.controller_primary_interface_name}
-          WakeOnLan=off
-          MTUBytes=${local.cml_network_mtu}
-        EOF
-      },
-      {
-        path        = "/etc/systemd/network/20-${local.cluster_interface_name}.link"
-        owner       = "root:root"
-        permissions = "0644"
-        # MTU has 50 bytes overhead for VXLAN/UDP/IP header.
-        # Controller has a fixed MAC address that survives a reboot.  The
-        # computes aren't as important.
-        content = <<-EOF
-          [Match]
-          OriginalName=${local.cluster_interface_name}
-          [Link]
-          Name=${local.cluster_interface_name}
-          MTUBytes=${local.cml_network_mtu - 50}
-          MACAddress=${local.cluster_controller_interface_mac}
-        EOF
-      },
       {
         path        = "/etc/virl2-base-config.yml"
         owner       = "root:root"
         permissions = "0640"
         content     = yamlencode(local.cml_config_controller)
+      },
+      {
+        path        = "/etc/netplan/60-${local.cluster_interface_name}.yaml"
+        owner       = "root:root"
+        permissions = "0600"
+        content = yamlencode({
+          network = {
+            version = 2
+            tunnels = {
+              (local.cluster_vxlan_interface_name) = {
+                mode = "vxlan"
+                id   = local.cluster_vxlan_vnid
+                link = var.options.cfg.gcp.controller_primary_interface_name
+                port = 4789
+                # MTU has 50 bytes overhead for VXLAN/UDP/IP header.
+                mtu          = var.options.cfg.gcp.network_mtu - 50
+                macaddress   = "random"
+                mac-learning = false
+                link-local   = []
+              }
+            }
+            bridges = {
+              (local.cluster_interface_name) = {
+                interfaces = [
+                  local.cluster_vxlan_interface_name,
+                ]
+                mtu = var.options.cfg.gcp.network_mtu - 50
+                parameters = {
+                  stp = false
+                }
+                # Fixed MAC address for the controller, so IPv6 link-local is stable.
+                macaddress = local.cluster_controller_interface_mac
+                link-local = ["ipv6"]
+              }
+            }
+          }
+        })
       },
       {
         path        = "/etc/frr/frr-base.conf"
@@ -268,68 +200,55 @@ locals {
           end
         EOF
       },
-      # Only present on controller
     ],
+    # Only present on controller
     local.cloud_init_config_libvirt_networks
   )
 
   cloud_init_config_write_files_compute = concat(local.cloud_init_config_write_files_template,
     [
-      # Replace cloud-init network configuration with systemd-networkd
-      # configuration for the cluster bridge
-      {
-        path        = "/etc/systemd/network/10-${var.options.cfg.gcp.compute_primary_interface_name}.network"
-        owner       = "root:root"
-        permissions = "0644"
-        content     = <<-EOF
-          [Match]
-          Name=${var.options.cfg.gcp.compute_primary_interface_name}
-          [Network]
-          # Both v4 and v6
-          DHCP=yes
-          LLMNR=no
-          LinkLocalAddressing=ipv6
-          VXLAN=${local.cluster_vxlan_interface_name}
-          [DHCP]
-          RouteMetric=100
-          # HACK cmm - VXLAN interface won't inherit this MTU, so we set explicitly in link.
-          UseMTU=true
-        EOF
-      },
-      {
-        path        = "/etc/systemd/network/10-${var.options.cfg.gcp.compute_primary_interface_name}.link"
-        owner       = "root:root"
-        permissions = "0644"
-        content     = <<-EOF
-          [Match]
-          Path=pci-${var.options.cfg.gcp.compute_primary_interface_pci_path}
-          [Link]
-          Name=${var.options.cfg.gcp.compute_primary_interface_name}
-          WakeOnLan=off
-          MTUBytes=${local.cml_network_mtu}
-        EOF
-      },
-      {
-        path  = "/etc/systemd/network/20-${local.cluster_interface_name}.link"
-        owner = "root:root"
-
-        permissions = "0644"
-        # MTU has 50 bytes overhead for VXLAN/UDP/IP header.
-        # Computes have random MAC addresses.
-        content = <<-EOF
-          [Match]
-          OriginalName=${local.cluster_interface_name}
-          [Link]
-          Name=${local.cluster_interface_name}
-          MTUBytes=${local.cml_network_mtu - 50}
-          MACAddressPolicy=random
-        EOF
-      },
       {
         path        = "/etc/virl2-base-config.yml"
         owner       = "root:root"
         permissions = "0640"
         content     = yamlencode(local.cml_config_compute)
+      },
+      {
+        path        = "/etc/netplan/60-${local.cluster_interface_name}.yaml"
+        owner       = "root:root"
+        permissions = "0600"
+        content = yamlencode({
+          network = {
+            version = 2
+            tunnels = {
+              (local.cluster_vxlan_interface_name) = {
+                mode = "vxlan"
+                id   = local.cluster_vxlan_vnid
+                link = var.options.cfg.gcp.compute_primary_interface_name
+                port = 4789
+                # MTU has 50 bytes overhead for VXLAN/UDP/IP header.
+                mtu          = local.cml_network_mtu - 50
+                macaddress   = "random"
+                mac-learning = false
+                link-local   = []
+              }
+            }
+            bridges = {
+              (local.cluster_interface_name) = {
+                interfaces = [
+                  local.cluster_vxlan_interface_name,
+                ]
+                mtu = local.cml_network_mtu - 50
+                parameters = {
+                  stp = false
+                }
+                # Random MAC address for the computes
+                macaddress = "random"
+                link-local = ["ipv6"]
+              }
+            }
+          }
+        })
       },
       {
         path        = "/etc/frr/frr-base.conf"
@@ -352,6 +271,79 @@ locals {
           !
         EOF
       },
+      # FIXME cmm - Move to common template
+      {
+        path        = "/etc/systemd/system/format-gcsfuse-cache.service"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Unit]
+          Description=Partition and format /dev/nvme0n1 for /srv/data/gcsfuse-cache
+          After=dev-nvme0n1.device
+          Before=srv-data-gcsfuse\x2dcache.mount
+          ConditionPathExists=!/srv/data/gcsfuse-cache/.formatted
+
+          [Service]
+          Type=oneshot
+          RemainAfterExit=true
+          ExecStart=/bin/bash -c ' \
+            if ! lsblk -f /dev/nvme0n1 | grep -q ext4; then \
+              echo "Partitioning disk..." ; \
+              parted /dev/nvme0n1 mklabel gpt ; \
+              parted /dev/nvme0n1 mkpart primary ext4 2048s 100% ; \
+              partprobe ; \
+              echo "Formatting disk..." ; \
+              mkfs.ext4 /dev/nvme0n1p1 ; \
+              mkdir -p /srv/data/gcsfuse-cache ; \
+              touch /srv/data/gcsfuse-cache/.formatted ; \
+            fi ; \
+          '
+          [Install]
+          WantedBy=multi-user.target
+        EOF
+      },
+      {
+        path        = "/etc/systemd/system/srv-data-gcsfuse\\x2dcache.mount"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Unit]
+          Description=Mount /srv/data/gcsfuse-cache
+          Requires=format-gcsfuse-cache.service
+          After=format-gcsfuse-cache.service
+
+          [Mount]
+          What=/dev/nvme0n1p1
+          Where=/srv/data/gcsfuse-cache
+          Type=ext4
+          Options=defaults
+
+          [Install]
+          WantedBy=multi-user.target
+        EOF
+      },
+      {
+        path        = "/etc/systemd/system/var-lib-libvirt-images.mount"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Unit]
+          Description=libvirt images
+          Requires=srv-data-gcsfuse\x2dcache.mount
+          After=srv-data-gcsfuse\x2dcache.mount
+
+          [Mount]
+          # FIXME cmm - Allow bucket name to be specified
+          What=bah-libvirt-images-ue1
+          Where=/var/lib/libvirt/images
+          Type=fuse.gcsfuse
+          # uid libvirt-qemu, gid virl2
+          Options=ro,uid=64055,gid=987,allow_other,config_file=/etc/gcsfuse/gcsfuse.yaml,_netdev
+
+          [Install]
+          WantedBy=multi-user.target
+        EOF
+      },
     ]
   )
 
@@ -363,27 +355,19 @@ locals {
   ]
 
   cloud_init_config_runcmd_template = [
-    # Changing networks on install after cloud-init is running is full of bugs
-    # and race conditions.  It's not recommended, but we have to do it for now
-    # so BGP EVPN VXLAN works.
+    # Pick up new cluster interface
+    "netplan apply",
 
-    # Remove cloud-init and NetworkManager network configuration, as we've
-    # replaced it with a systemd-networkd configuration
-    "rm /etc/netplan/*",
-    "rm /run/systemd/network/*",
-    # Let the systemd-networkd configuration take effect
-    "networkctl reload",
-    # HACK cmm - VXLAN MTU won't be inherited by primary interface, so set explicitly
-    # during initial configuration.  It's a race condition or a bug.  Subsequent
-    # reboots will be fine.
-    "sleep 5 && ip link set ${local.cluster_vxlan_interface_name} mtu ${local.cml_network_mtu - 50}",
     # Pick up new systemd-resolved configuration, enable mDNS
     "systemctl restart systemd-resolved",
 
-    # We should be using mDNS/IPv6 on the cluster link.  DNS is bad.
+    ## We should be using mDNS/IPv6 on the cluster link.  DNS is bad.
     "echo -n 'Cluster link scope: ' && resolvectl status cluster | awk '/Current Scopes/ { print $3 }'",
 
-    # Enable BGP daemon and restart FRR
+    # TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
+    "systemctl disable --now firewalld",
+
+    # Enable BGP daemon and restart FRR.  cml.sh will configure the rest.
     "sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons",
     "systemctl restart frr",
 
@@ -394,24 +378,12 @@ locals {
 
   cloud_init_config_runcmd_controller = concat(local.cloud_init_config_runcmd_template,
     [
-      # Install cml
-      #"/provision/cml.sh && touch /run/reboot || echo 'CML provisioning failed.  Not rebooting' && false",
+      # Install cml, do not reboot
       "/provision/cml.sh || echo 'CML provisioning failed.  Not rebooting' && false",
-      # Remove primary interface from NetworkManager, placed by
-      # virl2-initial-setup.py.  This will be handled by systemd-networkd instead.
-      "rm /etc/NetworkManager/system-connections/* || true",
-      "systemctl restart NetworkManager",
-      # Let the systemd-networkd configuration take effect again 
-      "networkctl reload",
-      # TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
-      "systemctl disable firewalld",
-      ## HACK FIXME cmm - use Google Cloud Filestore instead.  Filestore idmapd is currently broken.
       "systemctl stop virl2.target",
-      #"echo '10.39.0.2:/libvirt_images /var/lib/libvirt/images nfs4 vers=4.1,rw,sec=sys,async,norelatime,noresvport,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=3,_netdev 1 1' >> /etc/fstab",
-      #"echo 'Y' > /sys/module/nfs/parameters/nfs4_disable_idmapping",
-      #"echo 'options nfs nfs4_disable_idmapping=Y' >> /etc/modprobe.d/nfs.conf",
+      "systemctl disable --now virl2-remount-images.service",
       "rm -rf /var/lib/libvirt/images/*",
-      # HACK cmm - Specify bucket name
+      # FIXME cmm - Make a mount unit without caching
       "echo 'bah-libvirt-images-ue1 /var/lib/libvirt/images fuse.gcsfuse ro,uid=64055,gid=987,allow_other,_netdev 1 1' >> /etc/fstab",
       "systemd daemon-reload",
       "mount /var/lib/libvirt/images",
@@ -424,26 +396,18 @@ locals {
 
   cloud_init_config_runcmd_compute = concat(local.cloud_init_config_runcmd_template,
     [
-      # Install cml, but do not reboot
+      # Install cml, do not reboot
       "/provision/cml.sh || echo 'CML provisioning failed.' && false",
-      # Remove primary interface from NetworkManager, placed by
-      # virl2-initial-setup.py.  This will be handled by systemd-networkd instead.
-      "rm /etc/NetworkManager/system-connections/* || true",
-      "systemctl restart NetworkManager",
-      # Let the systemd-networkd configuration take effect again 
-      "networkctl reload",
-      # TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
-      "systemctl disable firewalld",
       # HACK FIXME cmm - use Google Cloud Storage instead
       "systemctl stop virl2.target",
+      "systemctl disable --now virl2-remount-images.service",
+      # Unmount NFS from controller
       "umount /var/lib/libvirt/images",
-      #"sed -i -e 's#^cml-controller.local.*#10.39.0.2:/libvirt_images /var/lib/libvirt/images nfs4 vers=4.1,rw,sec=sys,async,norelatime,noresvport,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=3,_netdev 1 1#' /etc/fstab",
-      #"echo 'Y' > /sys/module/nfs/parameters/nfs4_disable_idmapping",
-      #"echo 'options nfs nfs4_disable_idmapping=Y' >> /etc/modprobe.d/nfs.conf",
-      # HACK cmm - Specify bucket name
-      "sed -i -e 's#^cml-controller.local.*#bah-libvirt-images-ue1 /var/lib/libvirt/images fuse.gcsfuse ro,uid=64055,gid=987,allow_other,_netdev 1 1#' /etc/fstab",
-      "systemd daemon-reload",
-      #"mount /var/lib/libvirt/images",
+      # Remove the fstab entry
+      "sed -i -e 's#^cml-controller.local.*#d' /etc/fstab",
+      "systemctl daemon-reload",
+      # Mount GCS FUSE libvir images
+      "systemctl enable --now var-lib-libvirt-images.mount",
       # HACK cmm - Allow gcsfuse to work for /var/lib/libvirt/images. Keep the LLD happy.
       "sed -i 's/nfs4/fuse.gcsfuse/' /var/local/virl2/.local/lib/python3.12/site-packages/simple_drivers/low_level_driver/host_statistics.py",
       "systemctl start virl2.target",

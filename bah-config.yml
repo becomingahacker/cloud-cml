@@ -221,7 +221,6 @@ gcp:
   # This varies based on machine type.  You should be fairly safe using these
   # with N2 series.
   controller_primary_interface_name: ens4
-  controller_primary_interface_pci_path: '0000:00:04.0'
 
   # Controller image family.  Provides access to the most recent custom image
   # for the control machine.  Leave empty to use 'ubuntu-2404-lts-amd64'.
@@ -262,9 +261,9 @@ gcp:
   compute_spot_machine_type: n2-highmem-32
 
   # This varies based on machine type.  You should be fairly safe using these
-  # with N2 series.
-  compute_primary_interface_name: ens4
-  compute_primary_interface_pci_path: '0000:00:04.0'
+  # with N2 series.  They do move around if you add local storage, e.g. for 
+  # GCS FUSE cache.
+  compute_primary_interface_name: ens5
 
 common:
   disk_size: 128
@@ -273,7 +272,7 @@ common:
   key_name: ssh-key-name
   allowed_ipv4_subnets:
     # GCE cml-subnet
-    - "10.10.0.0/16"
+    - "100.64.1.0/24"
     # TODO cmm - these should be integrated into the terraform code if the load balancer is enabled
     # GCE Health Chekers
     - "35.191.0.0/16"

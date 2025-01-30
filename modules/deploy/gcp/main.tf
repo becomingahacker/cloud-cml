@@ -24,8 +24,8 @@ locals {
 
   # BGP EVPN bridge
   cluster_interface_name       = "cluster"
-  cluster_vxlan_interface_name = "vxlan0"
-  cluster_vxlan_vnid           = "1"
+  cluster_vxlan_interface_name = "vxlan1"
+  cluster_vxlan_vnid           = 1
 
   cluster_bgp_as = 65000
 
@@ -662,6 +662,33 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
     disk_size_gb = var.options.cfg.cluster.compute_disk_size
   }
 
+  # GCS FUSE Cache
+  disk {
+    type      = "SCRATCH"
+    disk_type = "local-ssd"
+    interface = "NVME"
+    disk_size_gb = 375
+  }
+  # HACK cmm - Need to have four locally attached SSDs for this compute type
+  disk {
+    type      = "SCRATCH"
+    disk_type = "local-ssd"
+    interface = "NVME"
+    disk_size_gb = 375
+  }
+  disk {
+    type      = "SCRATCH"
+    disk_type = "local-ssd"
+    interface = "NVME"
+    disk_size_gb = 375
+  }
+  disk {
+    type      = "SCRATCH"
+    disk_type = "local-ssd"
+    interface = "NVME"
+    disk_size_gb = 375
+  }
+
   # Use machine as a router & disable source address checking
   can_ip_forward = true
 
@@ -731,6 +758,33 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   disk {
     source_image = "${var.options.cfg.gcp.project}/${var.options.cfg.gcp.compute_image_family}"
     disk_size_gb = var.options.cfg.cluster.compute_disk_size
+  }
+
+  # GCS FUSE Cache
+  disk {
+    type      = "SCRATCH"
+    disk_type = "local-ssd"
+    interface = "NVME"
+    disk_size_gb = 375
+  }
+  # HACK cmm - Need to have four locally attached SSDs for this compute type
+  disk {
+    type      = "SCRATCH"
+    disk_type = "local-ssd"
+    interface = "NVME"
+    disk_size_gb = 375
+  }
+  disk {
+    type      = "SCRATCH"
+    disk_type = "local-ssd"
+    interface = "NVME"
+    disk_size_gb = 375
+  }
+  disk {
+    type      = "SCRATCH"
+    disk_type = "local-ssd"
+    interface = "NVME"
+    disk_size_gb = 375
   }
 
   # Use machine as a router & disable source address checking
@@ -861,12 +915,12 @@ resource "google_certificate_manager_certificate_map" "cml_certificate_map" {
 }
 
 resource "google_certificate_manager_certificate_map_entry" "cml_certificate_map_entry" {
-  name         = "cml-certificate-map-entry"
-  map          = google_certificate_manager_certificate_map.cml_certificate_map.name
+  name = "cml-certificate-map-entry"
+  map  = google_certificate_manager_certificate_map.cml_certificate_map.name
   certificates = [
     google_certificate_manager_certificate.cml_certificate.id
   ]
-  matcher      = "PRIMARY"
+  matcher = "PRIMARY"
 }
 
 resource "google_compute_global_address" "cml_load_balancer" {
@@ -998,16 +1052,16 @@ resource "google_compute_global_forwarding_rule" "cml_http_forwarding_rule_v6" {
 }
 
 resource "google_compute_url_map" "cml_lb_https" {
-  name        = "cml-lb-https-${var.options.rand_id}"
-  description = "cml-lb-https"
+  name            = "cml-lb-https-${var.options.rand_id}"
+  description     = "cml-lb-https"
   default_service = google_compute_backend_service.cml_backend_controller.id
 }
 
 resource "google_compute_target_https_proxy" "cml_target_https_proxy" {
-  name    = "cml-target-https-proxy-${var.options.rand_id}"
-  url_map = google_compute_url_map.cml_lb_https.id
-  certificate_map = "//certificatemanager.googleapis.com/${google_certificate_manager_certificate_map.cml_certificate_map.id}"
-  quic_override = "DISABLE"
+  name                        = "cml-target-https-proxy-${var.options.rand_id}"
+  url_map                     = google_compute_url_map.cml_lb_https.id
+  certificate_map             = "//certificatemanager.googleapis.com/${google_certificate_manager_certificate_map.cml_certificate_map.id}"
+  quic_override               = "DISABLE"
   http_keep_alive_timeout_sec = 1200
 }
 
