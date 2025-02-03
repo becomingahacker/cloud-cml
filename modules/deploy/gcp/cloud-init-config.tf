@@ -6,100 +6,173 @@
 
 locals {
 
-  cloud_init_config_write_files_template = concat([
-    {
-      path        = "/provision/refplat"
-      owner       = "root:root"
-      permissions = "0644"
-      content     = jsonencode(var.options.cfg.refplat)
-    },
-    {
-      path        = "/provision/cml.sh"
-      owner       = "root:root"
-      permissions = "0700"
-      content     = var.options.cml
-    },
-    {
-      path        = "/provision/common.sh"
-      owner       = "root:root"
-      permissions = "0700"
-      content     = var.options.common
-    },
-    {
-      path        = "/provision/copyfile.sh"
-      owner       = "root:root"
-      permissions = "0700"
-      content     = var.options.copyfile
-    },
-    {
-      path        = "/provision/vars.sh"
-      owner       = "root:root"
-      permissions = "0700"
-      content     = format("%s\n%s", local.vars, var.options.extras)
-    },
-    {
-      path        = "/provision/del.sh"
-      owner       = "root:root"
-      permissions = "0700"
-      content     = var.options.del
-    },
-    {
-      path        = "/provision/interface_fix.py"
-      owner       = "root:root"
-      permissions = "0700"
-      # Do nothing for GCP.  We don't need to fix interfaces.
-      content = <<-EOF
-        #!/usr/bin/env python3
-        import sys
-        sys.exit(0)
-      EOF
-    },
-    {
-      path        = "/provision/license.py"
-      owner       = "root:root"
-      permissions = "0700"
-      content     = var.options.license
-    },
-    # Enable mDNS globally
-    {
-      path        = "/etc/systemd/resolved.conf.d/mdns.conf"
-      owner       = "root:root"
-      permissions = "0644"
-      content     = <<-EOF
-        [Resolve]
-        MulticastDNS=yes
-        LLMNR=no
-      EOF
-    },
-    # Enable mDNS on cluster interface
-    {
-      path        = "/etc/systemd/network/10-netplan-cluster.network.d/override.conf"
-      owner       = "root:root"
-      permissions = "0644"
-      content     = <<-EOF
-        [Network]
-        MulticastDNS=yes
-      EOF
-    },
-    # GCS FUSE config file
-    # https://cloud.google.com/storage/docs/cloud-storage-fuse/config-file
-    {
-      path        = "/etc/gcsfuse/gcsfuse.yaml"
-      owner       = "root:root"
-      permissions = "0644"
-      content = yamlencode({
-        file-cache = {
-          max-size-mb               = -1
-          cache-file-for-range-read = false
-        }
-        metadata-cache = {
-          stat-cache-max-size-mb = 32
-          ttl-secs               = 3600
-          type-cache-max-size-mb = 4
-        }
-        cache-dir = "/srv/data/gcsfuse-cache"
-      })
-    },
+  cloud_init_config_write_files_template = concat(
+    [
+      {
+        path        = "/provision/refplat"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = jsonencode(var.options.cfg.refplat)
+      },
+      {
+        path        = "/provision/cml.sh"
+        owner       = "root:root"
+        permissions = "0700"
+        content     = var.options.cml
+      },
+      {
+        path        = "/provision/common.sh"
+        owner       = "root:root"
+        permissions = "0700"
+        content     = var.options.common
+      },
+      {
+        path        = "/provision/copyfile.sh"
+        owner       = "root:root"
+        permissions = "0700"
+        content     = var.options.copyfile
+      },
+      {
+        path        = "/provision/vars.sh"
+        owner       = "root:root"
+        permissions = "0700"
+        content     = format("%s\n%s", local.vars, var.options.extras)
+      },
+      {
+        path        = "/provision/del.sh"
+        owner       = "root:root"
+        permissions = "0700"
+        content     = var.options.del
+      },
+      {
+        path        = "/provision/interface_fix.py"
+        owner       = "root:root"
+        permissions = "0700"
+        # Do nothing for GCP.  We don't need to fix interfaces.
+        content = <<-EOF
+          #!/usr/bin/env python3
+          import sys
+          sys.exit(0)
+        EOF
+      },
+      {
+        path        = "/provision/license.py"
+        owner       = "root:root"
+        permissions = "0700"
+        content     = var.options.license
+      },
+      # Enable mDNS globally
+      {
+        path        = "/etc/systemd/resolved.conf.d/mdns.conf"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Resolve]
+          MulticastDNS=yes
+          LLMNR=no
+        EOF
+      },
+      # Enable mDNS on cluster interface
+      {
+        path        = "/etc/systemd/network/10-netplan-cluster.network.d/override.conf"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Network]
+          MulticastDNS=yes
+        EOF
+      },
+      # GCS FUSE config file
+      # https://cloud.google.com/storage/docs/cloud-storage-fuse/config-file
+      {
+        path        = "/etc/gcsfuse/gcsfuse.yaml"
+        owner       = "root:root"
+        permissions = "0644"
+        content = yamlencode({
+          file-cache = {
+            max-size-mb               = -1
+            cache-file-for-range-read = false
+          }
+          metadata-cache = {
+            stat-cache-max-size-mb = 32
+            ttl-secs               = 3600
+            type-cache-max-size-mb = 4
+          }
+          cache-dir = "/srv/data/gcsfuse-cache"
+        })
+      },
+      {
+        path        = "/etc/systemd/system/format-gcsfuse-cache.service"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Unit]
+          Description=Partition and format /dev/nvme0n1 for /srv/data/gcsfuse-cache
+          After=dev-nvme0n1.device
+          Before=srv-data-gcsfuse\x2dcache.mount
+          ConditionPathExists=!/srv/data/gcsfuse-cache/.formatted
+  
+          [Service]
+          Type=oneshot
+          RemainAfterExit=true
+          ExecStart=/bin/bash -c ' \
+            if ! lsblk -f /dev/nvme0n1 | grep -q ext4; then \
+              echo "Partitioning disk..." ; \
+              parted /dev/nvme0n1 mklabel gpt ; \
+              parted /dev/nvme0n1 mkpart primary ext4 2048s 100% ; \
+              partprobe ; \
+              echo "Formatting disk..." ; \
+              mkfs.ext4 /dev/nvme0n1p1 ; \
+              mkdir -p /srv/data/gcsfuse-cache ; \
+              touch /srv/data/gcsfuse-cache/.formatted ; \
+            fi ; \
+          '
+          [Install]
+          WantedBy=multi-user.target
+        EOF
+      },
+      {
+        path        = "/etc/systemd/system/srv-data-gcsfuse\\x2dcache.mount"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Unit]
+          Description=Mount /srv/data/gcsfuse-cache
+          Requires=format-gcsfuse-cache.service
+          After=format-gcsfuse-cache.service
+  
+          [Mount]
+          What=/dev/nvme0n1p1
+          Where=/srv/data/gcsfuse-cache
+          Type=ext4
+          Options=defaults
+  
+          [Install]
+          WantedBy=multi-user.target
+        EOF
+      },
+      {
+        path        = "/etc/systemd/system/var-lib-libvirt-images.mount"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Unit]
+          Description=libvirt images
+          Requires=srv-data-gcsfuse\x2dcache.mount
+          After=srv-data-gcsfuse\x2dcache.mount
+  
+          [Mount]
+          # FIXME cmm - Allow bucket name to be specified
+          What=bah-libvirt-images-ue1
+          Where=/var/lib/libvirt/images
+          Type=fuse.gcsfuse
+          # uid libvirt-qemu, gid virl2
+          Options=ro,uid=64055,gid=987,allow_other,config_file=/etc/gcsfuse/gcsfuse.yaml,_netdev
+  
+          [Install]
+          WantedBy=multi-user.target
+        EOF
+      },
     ],
     [for script in var.options.cfg.app.customize : {
       path        = "/provision/${script}"
@@ -406,79 +479,6 @@ locals {
           !
         EOF
       },
-      # FIXME cmm - Move to common template
-      {
-        path        = "/etc/systemd/system/format-gcsfuse-cache.service"
-        owner       = "root:root"
-        permissions = "0644"
-        content     = <<-EOF
-          [Unit]
-          Description=Partition and format /dev/nvme0n1 for /srv/data/gcsfuse-cache
-          After=dev-nvme0n1.device
-          Before=srv-data-gcsfuse\x2dcache.mount
-          ConditionPathExists=!/srv/data/gcsfuse-cache/.formatted
-
-          [Service]
-          Type=oneshot
-          RemainAfterExit=true
-          ExecStart=/bin/bash -c ' \
-            if ! lsblk -f /dev/nvme0n1 | grep -q ext4; then \
-              echo "Partitioning disk..." ; \
-              parted /dev/nvme0n1 mklabel gpt ; \
-              parted /dev/nvme0n1 mkpart primary ext4 2048s 100% ; \
-              partprobe ; \
-              echo "Formatting disk..." ; \
-              mkfs.ext4 /dev/nvme0n1p1 ; \
-              mkdir -p /srv/data/gcsfuse-cache ; \
-              touch /srv/data/gcsfuse-cache/.formatted ; \
-            fi ; \
-          '
-          [Install]
-          WantedBy=multi-user.target
-        EOF
-      },
-      {
-        path        = "/etc/systemd/system/srv-data-gcsfuse\\x2dcache.mount"
-        owner       = "root:root"
-        permissions = "0644"
-        content     = <<-EOF
-          [Unit]
-          Description=Mount /srv/data/gcsfuse-cache
-          Requires=format-gcsfuse-cache.service
-          After=format-gcsfuse-cache.service
-
-          [Mount]
-          What=/dev/nvme0n1p1
-          Where=/srv/data/gcsfuse-cache
-          Type=ext4
-          Options=defaults
-
-          [Install]
-          WantedBy=multi-user.target
-        EOF
-      },
-      {
-        path        = "/etc/systemd/system/var-lib-libvirt-images.mount"
-        owner       = "root:root"
-        permissions = "0644"
-        content     = <<-EOF
-          [Unit]
-          Description=libvirt images
-          Requires=srv-data-gcsfuse\x2dcache.mount
-          After=srv-data-gcsfuse\x2dcache.mount
-
-          [Mount]
-          # FIXME cmm - Allow bucket name to be specified
-          What=bah-libvirt-images-ue1
-          Where=/var/lib/libvirt/images
-          Type=fuse.gcsfuse
-          # uid libvirt-qemu, gid virl2
-          Options=ro,uid=64055,gid=987,allow_other,config_file=/etc/gcsfuse/gcsfuse.yaml,_netdev
-
-          [Install]
-          WantedBy=multi-user.target
-        EOF
-      },
     ]
   )
 
@@ -523,9 +523,9 @@ locals {
       "systemctl stop virl2.target",
       "systemctl disable --now virl2-remount-images.service",
       "rm -rf /var/lib/libvirt/images/* || true",
-      # FIXME cmm - Make a mount unit without caching
-      "systemd daemon-reload",
-      "mount /var/lib/libvirt/images || true",
+      "systemctl daemon-reload",
+      # Mount GCS FUSE libvir images
+      "systemctl enable --now var-lib-libvirt-images.mount",
       # Still need to export something, so computes are happy on install.
       "sed -i -e 's#^/var/lib/libvirt/images.*#/srv	fe80::%cluster/64(ro,sync,no_subtree_check,crossmnt,fsid=0,no_root_squash)#' /etc/exports",
       "exportfs -r",
