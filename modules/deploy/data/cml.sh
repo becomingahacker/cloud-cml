@@ -52,10 +52,14 @@ function setup_pre_gcp() {
         vtysh -f /etc/frr/frr-base.conf
         vtysh -c "copy running-config startup-config"
 
-        # Start routed external network (100.64.1.0/24)
-        virsh net-define /provision/net-bah-external.xml
-        virsh net-autostart bah-external
-        virsh net-start bah-external
+        # Start routed external networks
+        for network_path in `find /provision -maxdepth 1 -type f -name 'net-*.xml'`; do
+            network_file=${network_path#/provision/net-}
+            network=${network_file%.xml}
+            virsh net-define $network_path;
+            virsh net-autostart $network;
+            virsh net-start $network;
+        done
     fi        
 
     return

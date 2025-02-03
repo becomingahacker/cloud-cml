@@ -27,7 +27,7 @@ locals {
   cluster_vxlan_interface_name = "vxlan1"
   cluster_vxlan_vnid           = 1
 
-  cluster_bgp_as = 65000
+  cluster_bgp_as = var.options.cfg.gcp.bgp.local_as
 
   # Specified for ease of troubleshooting on the Controller.   IPv6 link local
   # address computes to fe80::1. Compute bridge MAC addresses are random. 
@@ -252,6 +252,9 @@ resource "google_compute_subnetwork" "cml_subnet" {
 # Private Service Connect
 # TODO cmm
 
+data "google_compute_lb_ip_ranges" "google_lb_health_check_ranges" {
+}
+
 resource "google_compute_region_network_firewall_policy" "cml_firewall_policy" {
   name   = "cml-firewall-policy"
   region = var.options.cfg.gcp.region
@@ -274,9 +277,9 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   disabled        = false
   enable_logging  = false
   firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
-  priority        = 10
+  priority        = var.options.cfg.gcp.network_firewall_rule_start_priority
   region          = var.options.cfg.gcp.region
-  rule_name       = "cml-firewall-rule-icmp"
+  rule_name       = "cml-firewall-rule-icmp-${var.options.rand_id}"
 
   match {
     src_ip_ranges = ["0.0.0.0/0"]
@@ -294,9 +297,9 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   disabled        = false
   enable_logging  = false
   firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
-  priority        = 11
+  priority        = var.options.cfg.gcp.network_firewall_rule_start_priority + 1
   region          = var.options.cfg.gcp.region
-  rule_name       = "cml-firewall-rule-icmpv6"
+  rule_name       = "cml-firewall-rule-icmpv6-${var.options.rand_id}"
 
   match {
     src_ip_ranges = ["::/0"]
@@ -316,12 +319,16 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   disabled        = false
   enable_logging  = false
   firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
-  priority        = 101
+  priority        = var.options.cfg.gcp.network_firewall_rule_start_priority + 2
   region          = var.options.cfg.gcp.region
-  rule_name       = "cml-firewall-rule-ssh"
+  rule_name       = "cml-firewall-rule-ssh-${var.options.rand_id}"
 
   match {
     src_address_groups = [google_network_security_address_group.cml_allowed_subnets_address_group.id]
+
+    dest_ip_ranges = [
+      google_compute_address.cml_controller.address,
+    ]
 
     layer4_configs {
       ip_protocol = "tcp"
@@ -329,7 +336,9 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
     }
   }
 
-  target_service_accounts = [local.cml_service_account.email]
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_controller.id
+  }
 }
 
 resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_ssh_v6" {
@@ -339,9 +348,9 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   disabled        = false
   enable_logging  = false
   firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
-  priority        = 104
+  priority        = var.options.cfg.gcp.network_firewall_rule_start_priority + 3
   region          = var.options.cfg.gcp.region
-  rule_name       = "cml-firewall-rule-ssh-v6"
+  rule_name       = "cml-firewall-rule-ssh-v6-${var.options.rand_id}"
 
   match {
     # TODO cmm - Needs an address group and configuration from YAML
@@ -357,13 +366,19 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
       ip_protocol = "tcp"
       ports       = ["22", "1122"]
     }
+
+    dest_ip_ranges = [
+      google_compute_address.cml_controller_v6.address,
+    ]
   }
 
-  target_service_accounts = [local.cml_service_account.email]
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_controller.id
+  }
 }
 
 resource "google_compute_region_network_firewall_policy_association" "cml_firewall_policy_association" {
-  name              = "cml-firewall-policy-association"
+  name              = "cml-firewall-policy-association-${var.options.rand_id}"
   attachment_target = local.cml_network.id
   firewall_policy   = google_compute_region_network_firewall_policy.cml_firewall_policy.id
   project           = var.options.cfg.gcp.project
@@ -377,12 +392,16 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   disabled        = false
   enable_logging  = false
   firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
-  priority        = 102
+  priority        = var.options.cfg.gcp.network_firewall_rule_start_priority + 4
   region          = var.options.cfg.gcp.region
-  rule_name       = "cml-firewall-rule-http"
+  rule_name       = "cml-firewall-rule-http-${var.options.rand_id}"
 
   match {
     src_address_groups = [google_network_security_address_group.cml_allowed_subnets_address_group.id]
+
+    dest_ip_ranges = [
+      google_compute_address.cml_controller.address,
+    ]
 
     layer4_configs {
       ip_protocol = "tcp"
@@ -402,14 +421,19 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   disabled        = false
   enable_logging  = false
   firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
-  priority        = 103
+  priority        = var.options.cfg.gcp.network_firewall_rule_start_priority + 5
   region          = var.options.cfg.gcp.region
   rule_name       = "cml-firewall-rule-cml-gfe-${var.options.rand_id}"
 
   match {
     src_ip_ranges = [
-      "130.211.0.0/22",
-      "35.191.0.0/16",
+      # Health checks and GFE
+      "2600:2d00:1:b029::/64",
+      "2600:2d00:1:1::/64",
+    ]
+
+    dest_ip_ranges = [
+      google_compute_address.cml_controller_v6.address
     ]
 
     layer4_configs {
@@ -418,19 +442,21 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
     }
   }
 
-  target_service_accounts = [local.cml_service_account.email]
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_controller.id
+  }
 }
 
 resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cml" {
   action          = "allow"
-  description     = "Cisco Modeling Labs allow CML services from other CML instances"
+  description     = "Cisco Modeling Labs allow CML controller to access computes"
   direction       = "INGRESS"
   disabled        = false
   enable_logging  = false
   firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
-  priority        = 106
+  priority        = var.options.cfg.gcp.network_firewall_rule_start_priority + 6
   region          = var.options.cfg.gcp.region
-  rule_name       = "cml-firewall-rule-cml"
+  rule_name       = "cml-firewall-rule-cml-${var.options.rand_id}"
 
   match {
     src_secure_tags {
@@ -441,30 +467,34 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
 
     layer4_configs {
       ip_protocol = "tcp"
-      ports       = ["443", "1222", "2049", "8006", "8051"]
+      ports       = ["443", "1222"]
     }
   }
 
-  target_service_accounts = [local.cml_service_account.email]
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_compute.id
+  }
 }
 
 resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cml_v4" {
   action          = "allow"
-  description     = "Cisco Modeling Labs allow CML services from other CML instances IPv4"
+  description     = "Cisco Modeling Labs allow BGP from CML computes to controller"
   direction       = "INGRESS"
   disabled        = false
   enable_logging  = false
   firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
-  priority        = 107
+  priority        = var.options.cfg.gcp.network_firewall_rule_start_priority + 7
   region          = var.options.cfg.gcp.region
-  rule_name       = "cml-firewall-rule-cml-v4"
+  rule_name       = "cml-firewall-rule-cml-v4-${var.options.rand_id}"
 
   match {
     src_secure_tags {
       name = google_tags_tag_value.cml_tag_cml_compute.id
     }
 
-    dest_ip_ranges = ["0.0.0.0/0"]
+    dest_ip_ranges = [
+      google_compute_address.cml_controller_internal.address,
+    ]
 
     layer4_configs {
       ip_protocol = "tcp"
@@ -475,18 +505,22 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   target_secure_tags {
     name = google_tags_tag_value.cml_tag_cml_controller.id
   }
+
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_compute.id
+  }
 }
 
 resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cml_v4_udp" {
   action          = "allow"
-  description     = "Cisco Modeling Labs allow CML services from other CML instances IPv4 UDP"
+  description     = "Cisco Modeling Labs allow VXLAN between CML computes and controller"
   direction       = "INGRESS"
   disabled        = false
   enable_logging  = false
   firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
-  priority        = 108
+  priority        = var.options.cfg.gcp.network_firewall_rule_start_priority + 8
   region          = var.options.cfg.gcp.region
-  rule_name       = "cml-firewall-rule-cml-v4-udp"
+  rule_name       = "cml-firewall-rule-cml-v4-udp-${var.options.rand_id}"
 
   match {
     src_secure_tags {
@@ -508,43 +542,29 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   target_secure_tags {
     name = google_tags_tag_value.cml_tag_cml_controller.id
   }
+
   target_secure_tags {
     name = google_tags_tag_value.cml_tag_cml_compute.id
   }
 }
 
-resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cml_gre" {
-  action          = "allow"
-  description     = "Cisco Modeling Labs allow GRE from other C8K instances"
-  direction       = "INGRESS"
-  disabled        = false
-  enable_logging  = false
-  firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
-  priority        = 109
-  region          = var.options.cfg.gcp.region
-  rule_name       = "cml-firewall-rule-cml-gre"
 
-  match {
-    src_ip_ranges = ["100.64.2.0/24"]
-
-    layer4_configs {
-      ip_protocol = 47
-    }
-  }
-
-  target_service_accounts = [local.cml_service_account.email]
-}
-
-
-resource "google_compute_address" "cml_address_internal" {
-  name         = "cml-address-internal"
+resource "google_compute_address" "cml_controller_internal" {
+  name         = "cml-controller-internal-${var.options.rand_id}"
   address_type = "INTERNAL"
   purpose      = "GCE_ENDPOINT"
   subnetwork   = google_compute_subnetwork.cml_subnet.id
 }
 
-resource "google_compute_address" "cml_address" {
-  name = "cml-address"
+resource "google_compute_address" "cml_controller" {
+  name = "cml-controller-${var.options.rand_id}"
+}
+
+resource "google_compute_address" "cml_controller_v6" {
+  name               = "cml-controller-v6-${var.options.rand_id}"
+  ip_version         = "IPV6"
+  ipv6_endpoint_type = "VM"
+  subnetwork         = google_compute_subnetwork.cml_subnet.id
 }
 
 resource "google_compute_instance" "cml_control_instance" {
@@ -579,12 +599,14 @@ resource "google_compute_instance" "cml_control_instance" {
   network_interface {
     network    = local.cml_network.id
     subnetwork = google_compute_subnetwork.cml_subnet.id
-    network_ip = google_compute_address.cml_address_internal.address
+    network_ip = google_compute_address.cml_controller_internal.address
     access_config {
-      nat_ip = google_compute_address.cml_address.address
+      nat_ip = google_compute_address.cml_controller.address
     }
     ipv6_access_config {
-      network_tier = "PREMIUM"
+      network_tier                = "PREMIUM"
+      external_ipv6               = google_compute_address.cml_controller_v6.address
+      external_ipv6_prefix_length = google_compute_address.cml_controller_v6.prefix_length
     }
     stack_type = "IPV4_IPV6"
   }
@@ -649,6 +671,27 @@ resource "google_compute_health_check" "cml_health_check" {
   }
 }
 
+# NEG for labs routed through the controller.  Used by Passthrough Network Loadbalancers.
+resource "google_compute_network_endpoint_group" "cml_controller_lab_neg" {
+  name = "cml-controller-lab-neg-${var.options.rand_id}"
+  network               = local.cml_network.id
+  subnetwork            = google_compute_subnetwork.cml_subnet.id
+  zone                  = var.options.cfg.gcp.zone
+  network_endpoint_type = "GCE_VM_IP"
+}
+
+resource "google_compute_network_endpoint" "cml_controller_endpoint" {
+  network_endpoint_group = google_compute_network_endpoint_group.cml_controller_lab_neg.name
+
+  instance   = google_compute_instance.cml_control_instance.name
+  ip_address = google_compute_instance.cml_control_instance.network_interface[0].network_ip
+}
+
+data "google_compute_machine_types" "cml_compute_on_demand" {
+  filter = "name = \"${var.options.cfg.gcp.compute_on_demand_machine_type}\""
+  zone   = var.options.cfg.gcp.zone
+}
+
 resource "google_compute_region_instance_template" "cml_compute_region_instance_template" {
   name_prefix  = var.options.cfg.cluster.compute_hostname_prefix
   machine_type = var.options.cfg.gcp.compute_on_demand_machine_type
@@ -664,28 +707,29 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
 
   # GCS FUSE Cache
   disk {
-    type      = "SCRATCH"
-    disk_type = "local-ssd"
-    interface = "NVME"
+    type         = "SCRATCH"
+    disk_type    = "local-ssd"
+    interface    = "NVME"
     disk_size_gb = 375
   }
-  # HACK cmm - Need to have four locally attached SSDs for this compute type
+  # FIXME cmm - Need to have four locally attached SSDs for this type - n2-highmem-32
+  # Make so this can be specified in the YAML config.
   disk {
-    type      = "SCRATCH"
-    disk_type = "local-ssd"
-    interface = "NVME"
-    disk_size_gb = 375
-  }
-  disk {
-    type      = "SCRATCH"
-    disk_type = "local-ssd"
-    interface = "NVME"
+    type         = "SCRATCH"
+    disk_type    = "local-ssd"
+    interface    = "NVME"
     disk_size_gb = 375
   }
   disk {
-    type      = "SCRATCH"
-    disk_type = "local-ssd"
-    interface = "NVME"
+    type         = "SCRATCH"
+    disk_type    = "local-ssd"
+    interface    = "NVME"
+    disk_size_gb = 375
+  }
+  disk {
+    type         = "SCRATCH"
+    disk_type    = "local-ssd"
+    interface    = "NVME"
     disk_size_gb = 375
   }
 
@@ -695,7 +739,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   network_interface {
     network    = local.cml_network.id
     subnetwork = google_compute_subnetwork.cml_subnet.id
-    # Should not need an external IP
+    # Should not need an external IP.  All addresses are ephemeral.
     #access_config {
     #}
     ipv6_access_config {
@@ -732,18 +776,9 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   }
 }
 
-
-resource "google_compute_instance_group_manager" "cml_compute_instance_group_manager" {
-  name = "cml-compute-instance-group-manager"
-
-  base_instance_name = var.options.cfg.cluster.compute_hostname_prefix
-  zone               = var.options.cfg.gcp.zone
-
-  version {
-    instance_template = var.options.cfg.gcp.compute_machine_provisioning_model == "on-demand" ? google_compute_region_instance_template.cml_compute_region_instance_template.id : google_compute_region_instance_template.cml_compute_region_instance_template_spot.id
-  }
-
-  target_size = var.options.cfg.cluster.number_of_compute_nodes
+data "google_compute_machine_types" "cml_compute_spot" {
+  filter = "name = \"${var.options.cfg.gcp.compute_spot_machine_type}\""
+  zone   = var.options.cfg.gcp.zone
 }
 
 # SPOT instances that can be preempted at any time.  Cheaper, but less reliable.
@@ -762,28 +797,9 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
 
   # GCS FUSE Cache
   disk {
-    type      = "SCRATCH"
-    disk_type = "local-ssd"
-    interface = "NVME"
-    disk_size_gb = 375
-  }
-  # HACK cmm - Need to have four locally attached SSDs for this compute type
-  disk {
-    type      = "SCRATCH"
-    disk_type = "local-ssd"
-    interface = "NVME"
-    disk_size_gb = 375
-  }
-  disk {
-    type      = "SCRATCH"
-    disk_type = "local-ssd"
-    interface = "NVME"
-    disk_size_gb = 375
-  }
-  disk {
-    type      = "SCRATCH"
-    disk_type = "local-ssd"
-    interface = "NVME"
+    type         = "SCRATCH"
+    disk_type    = "local-ssd"
+    interface    = "NVME"
     disk_size_gb = 375
   }
 
@@ -794,8 +810,8 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
     network    = local.cml_network.id
     subnetwork = google_compute_subnetwork.cml_subnet.id
     # Should not need an external IP
-    #access_config {
-    #}
+    # access_config {
+    # }
     ipv6_access_config {
       network_tier = "PREMIUM"
     }
@@ -836,6 +852,19 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   }
 }
 
+resource "google_compute_instance_group_manager" "cml_compute_instance_group_manager" {
+  name = "cml-compute-instance-group-manager-${var.options.rand_id}"
+
+  base_instance_name = var.options.cfg.cluster.compute_hostname_prefix
+  zone               = var.options.cfg.gcp.zone
+
+  version {
+    instance_template = var.options.cfg.gcp.compute_machine_provisioning_model == "on-demand" ? google_compute_region_instance_template.cml_compute_region_instance_template.id : google_compute_region_instance_template.cml_compute_region_instance_template_spot.id
+  }
+
+  target_size = var.options.cfg.cluster.number_of_compute_nodes
+}
+
 data "cloudinit_config" "cml_compute" {
   gzip          = false
   base64_encode = false # always true if gzip is true
@@ -845,14 +874,6 @@ data "cloudinit_config" "cml_compute" {
     content_type = "text/cloud-config"
     content      = format("#cloud-config\n%s", yamlencode(local.cloud_init_config_compute))
   }
-}
-
-resource "google_compute_route" "cml_routes" {
-  for_each          = var.options.cfg.gcp.cml_custom_external_connections
-  name              = "cml-route-${each.key}"
-  network           = local.cml_network.id
-  dest_range        = each.value.cidr
-  next_hop_instance = google_compute_instance.cml_control_instance.self_link
 }
 
 data "google_dns_managed_zone" "cml_zone" {
@@ -867,7 +888,19 @@ resource "google_dns_record_set" "cml_controller_dns" {
   managed_zone = data.google_dns_managed_zone.cml_zone.name
 
   rrdatas = [
-    google_compute_address.cml_address.address
+    google_compute_address.cml_controller.address
+  ]
+}
+
+resource "google_dns_record_set" "cml_controller_dns_v6" {
+  name = "${var.options.cfg.common.controller_hostname}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  type = "AAAA"
+  ttl  = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    google_compute_address.cml_controller_v6.address
   ]
 }
 
@@ -894,11 +927,9 @@ resource "google_dns_record_set" "cml_dns_auth" {
 }
 
 resource "google_certificate_manager_certificate" "cml_certificate" {
-  name        = "cml-certificate"
+  name        = "cml-certificate-${var.options.rand_id}"
   description = "cml-certificate"
-  #location    = var.options.cfg.gcp.region
-  #scope = "ALL_REGIONS"
-  scope = "DEFAULT"
+  scope       = "DEFAULT"
 
   managed {
     domains = var.options.cfg.gcp.load_balancer_fqdns
@@ -911,11 +942,11 @@ resource "google_certificate_manager_certificate" "cml_certificate" {
 }
 
 resource "google_certificate_manager_certificate_map" "cml_certificate_map" {
-  name = "cml-certificate-map"
+  name = "cml-certificate-map-${var.options.rand_id}"
 }
 
 resource "google_certificate_manager_certificate_map_entry" "cml_certificate_map_entry" {
-  name = "cml-certificate-map-entry"
+  name = "cml-certificate-map-entry-${var.options.rand_id}"
   map  = google_certificate_manager_certificate_map.cml_certificate_map.name
   certificates = [
     google_certificate_manager_certificate.cml_certificate.id
@@ -966,7 +997,7 @@ resource "google_compute_security_policy" "cml_security_policy" {
 
 resource "google_compute_security_policy_rule" "cml_security_policy_rule" {
   security_policy = google_compute_security_policy.cml_security_policy.name
-  description     = "cml-security-policy-rule"
+  description     = "cml-security-policy-rule-${var.options.rand_id}"
   priority        = 100
 
   match {
@@ -1011,6 +1042,7 @@ resource "google_compute_backend_service" "cml_backend_controller" {
     enable = false
   }
 
+  ip_address_selection_policy = "IPV6_ONLY"
   protocol         = "HTTPS"
   port_name        = "https"
   security_policy  = google_compute_security_policy.cml_security_policy.id

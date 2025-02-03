@@ -87,14 +87,14 @@ locals {
       path        = "/etc/gcsfuse/gcsfuse.yaml"
       owner       = "root:root"
       permissions = "0644"
-      content     = yamlencode({
+      content = yamlencode({
         file-cache = {
-          max-size-mb = -1
+          max-size-mb               = -1
           cache-file-for-range-read = false
         }
         metadata-cache = {
           stat-cache-max-size-mb = 32
-          ttl-secs = 3600
+          ttl-secs               = 3600
           type-cache-max-size-mb = 4
         }
         cache-dir = "/srv/data/gcsfuse-cache"
@@ -118,13 +118,18 @@ locals {
       content     = <<-EOF
         <network>
           <name>${network_name}</name>
-          <forward mode="%{if config.enable_nat}nat%{else}route%{endif}"/>
-          <bridge name='${config.bridge_name}' stp='off' delay='0'/>
-          <mtu size="%{if config.mtu == null}${(local.cml_network_mtu - 50)}%{else}${config.mtu}%{endif}"/>
+          <forward mode="${config.forward_mode}"/>
+          <bridge name='${network_name}' stp='off' delay='0'/>
+          <mtu size="%{if try(config.mtu, null) == null}${(local.cml_network_mtu)}%{else}${config.mtu}%{endif}"/>
           %{if config.mac_address != null}<mac address="${config.mac_address}"/>%{endif}
-          <ip address='${config.ip}' netmask='${config.netmask}'>
+          <ip address='%{if config.gateway == "last"}${cidrhost(config.cidr, -2)}%{else}${cidrhost(config.cidr, 1)}%{endif}' netmask='${cidrnetmask(config.cidr)}'>
             <dhcp>
-              <range start='${config.start}' end='${config.end}'/>
+              <range start='${cidrhost(config.cidr, 128)}' end='%{if config.gateway == "last"}${cidrhost(config.cidr, -3)}%{else}${cidrhost(config.cidr, -2)}%{endif}'/>
+            </dhcp>
+          </ip>
+          <ip family='ipv6' address='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),config.gateway == "last" ? 65534 : 1)}' prefix='112'>
+            <dhcp>
+              <range start='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),32768)}' end='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),65533)}'/>
             </dhcp>
           </ip>
         </network>
@@ -154,7 +159,7 @@ locals {
                 link = var.options.cfg.gcp.controller_primary_interface_name
                 port = 4789
                 # MTU has 50 bytes overhead for VXLAN/UDP/IP header.
-                mtu          = var.options.cfg.gcp.network_mtu - 50
+                mtu          = local.cml_network_mtu - 50
                 macaddress   = "random"
                 mac-learning = false
                 link-local   = []
@@ -165,7 +170,7 @@ locals {
                 interfaces = [
                   local.cluster_vxlan_interface_name,
                 ]
-                mtu = var.options.cfg.gcp.network_mtu - 50
+                mtu = local.cml_network_mtu - 50
                 parameters = {
                   stp = false
                 }
@@ -181,12 +186,72 @@ locals {
         path        = "/etc/frr/frr-base.conf"
         owner       = "root:root"
         permissions = "0640"
-        content     = <<-EOF
+        content = <<-EOF
+          ! 
+          %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
+          %{ if try(config.bgp, null) != null }
+          %{ for i in range(length(config.bgp.ipv4.allow_out)) }
+          ip prefix-list CML_${network_name}_OUT seq ${i+1} permit ${config.bgp.ipv4.allow_out[i].cidr}%{ if try(config.bgp.ipv4.allow_out[i].le, null) != null } le ${config.bgp.ipv4.allow_out[i].le}%{endif}%{ if try(config.bgp.ipv4.allow_out[i].ge, null) != null } ge ${config.bgp.ipv4.allow_out[i].ge}%{endif }
+          %{ endfor }
+          !
+          route-map CML_${network_name}_OUT permit 10
+           match ip address prefix-list CML_${network_name}_OUT
+          exit
+          !
+          route-map CML_${network_name}_OUT deny 20
+          exit
+          !
+          %{ for i in range(length(config.bgp.ipv4.allow_in)) }
+          ip prefix-list CML_${network_name}_IN seq ${i+1} permit ${config.bgp.ipv4.allow_in[i].cidr}%{if try(config.bgp.ipv4.allow_in[i].le, null) != null } le ${config.bgp.ipv4.allow_in[i].le}%{endif }%{if try(config.bgp.ipv4.allow_in[i].ge, null) != null } ge ${config.bgp.ipv4.allow_in[i].ge}%{endif }
+          %{ endfor }
+          !
+          route-map CML_${network_name}_IN permit 10
+           match ip address prefix-list CML_${network_name}_IN
+          exit
+          !
+          route-map CML_${network_name}_IN deny 20
+          exit
+          !
+          %{ for i in range(length(config.bgp.ipv6.allow_out)) }
+          ipv6 prefix-list CML_${network_name}_OUT_V6 seq ${i+1} permit ${config.bgp.ipv6.allow_out[i].cidr}%{if try(config.bgp.ipv6.allow_out[i].le, null) != null } le ${config.bgp.ipv6.allow_out[i].le}%{endif }%{if try(config.bgp.ipv6.allow_out[i].ge, null) != null } ge ${config.bgp.ipv6.allow_out[i].ge}%{endif }
+          %{ endfor }
+          !
+          route-map CML_${network_name}_OUT_V6 permit 10
+           match ipv6 address prefix-list CML_${network_name}_OUT_V6
+          exit
+          !
+          route-map CML_${network_name}_OUT_V6 deny 20
+          exit
+          !
+          %{ for i in range(length(config.bgp.ipv6.allow_in)) }
+          ipv6 prefix-list CML_${network_name}_IN_V6 seq ${i+1} permit ${config.bgp.ipv6.allow_in[i].cidr}%{if try(config.bgp.ipv6.allow_in[i].le, null) != null } le ${config.bgp.ipv6.allow_in[i].le}%{endif }%{if try(config.bgp.ipv6.allow_in[i].ge, null) != null } ge ${config.bgp.ipv6.allow_in[i].ge}%{endif }
+          %{ endfor }
+          !
+          route-map CML_${network_name}_IN_V6 permit 10
+           match ipv6 address prefix-list CML_${network_name}_IN_V6
+          exit
+          !
+          route-map CML_${network_name}_IN_V6 deny 20
+          exit
+          !
+          %{ endif }
+          %{ endfor }
+          !
           router bgp ${local.cluster_bgp_as}
-           bgp router-id ${google_compute_address.cml_address_internal.address}
+           bgp router-id ${google_compute_address.cml_controller_internal.address}
            neighbor VTEP peer-group
            neighbor VTEP remote-as ${local.cluster_bgp_as}
            bgp listen range ${google_compute_subnetwork.cml_subnet.ip_cidr_range} peer-group VTEP
+           %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
+           %{ if try(config.bgp, null) != null }
+           neighbor CML_${network_name} peer-group
+           neighbor CML_${network_name} remote-as ${config.bgp.remote_as}
+           bgp listen range ${config.cidr} peer-group CML_${network_name}
+           neighbor CML_${network_name}_V6 peer-group
+           neighbor CML_${network_name}_V6 remote-as ${config.bgp.remote_as}
+           bgp listen range ${cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1)} peer-group CML_${network_name}_V6
+           %{ endif }
+           %{ endfor }
            !
            address-family l2vpn evpn
             neighbor VTEP activate
@@ -194,10 +259,80 @@ locals {
             advertise-all-vni
             advertise-svi-ip
            exit-address-family
+           !
+           address-family ipv4 unicast
+           %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
+           %{ if try(config.bgp, null) != null }
+            neighbor CML_${network_name} activate
+           %{ if try(config.bgp.ipv4.default_originate, false) }
+            neighbor CML_${network_name} default-originate
+           %{ endif }
+            neighbor CML_${network_name} route-map CML_${network_name}_IN in
+            neighbor CML_${network_name} route-map CML_${network_name}_OUT out
+            neighbor CML_${network_name}_V6 activate
+           %{ if try(config.bgp.ipv4.default_originate, false) }
+            neighbor CML_${network_name}_V6 default-originate
+           %{ endif }
+            neighbor CML_${network_name}_V6 route-map CML_${network_name}_IN in
+            neighbor CML_${network_name}_V6 route-map CML_${network_name}_OUT out
+           %{ endif }
+           %{ endfor }
+            neighbor VTEP activate
+            neighbor VTEP route-reflector-client
+            neighbor VTEP next-hop-self
+           exit-address-family
+           !
+           address-family ipv6 unicast
+           %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
+           %{ if try(config.bgp, null) != null }
+            neighbor CML_${network_name}_V6 activate
+           %{ if try(config.bgp.ipv6.default_originate, false) }
+            neighbor CML_${network_name}_V6 default-originate
+           %{ endif }
+            neighbor CML_${network_name}_V6 route-map CML_${network_name}_IN_V6 in
+            neighbor CML_${network_name}_V6 route-map CML_${network_name}_OUT_V6 out
+           %{ endif }
+           %{ endfor }
+           exit-address-family
+          exit
           !
           ip nht resolve-via-default
           !
           end
+        EOF
+      },
+      {
+        path        = "/etc/radvd.conf"
+        owner       = "root:root"
+        permissions = "0640"
+        # FIXME cmm - only supports one network right now
+        content = <<-EOF
+          %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
+          interface ${network_name}
+          {
+            AdvSendAdvert on;
+            AdvManagedFlag on;
+            prefix ${cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1)}
+            {
+              AdvOnLink on;
+              AdvAutonomous on;
+              AdvRouterAddr on;
+            };
+          };
+          %{ endfor }
+        EOF
+      },
+      {
+        # Google Guest Agent configuration
+        # https://github.com/GoogleCloudPlatform/guest-agent/blob/main/google_guest_agent/cfg/cfg.go
+        path        = "/etc/default/instance_configs.cfg"
+        owner       = "root:root"
+        permissions = "0640"
+        content     = <<-EOF
+          # Disable passthrough local IP routes (protocol 66).  These will be
+          # overridden by the BGP routes advertised from labs.
+          [NetworkInterfaces]
+          ip_forwarding = false
         EOF
       },
     ],
@@ -259,7 +394,7 @@ locals {
            ! bgp router-id will be the primary interface, fixed in cml.sh
            neighbor VTEP peer-group
            neighbor VTEP remote-as ${local.cluster_bgp_as}
-           neighbor ${google_compute_address.cml_address_internal.address} peer-group VTEP
+           neighbor ${google_compute_address.cml_controller_internal.address} peer-group VTEP
            !
            address-family l2vpn evpn
             neighbor VTEP activate
@@ -352,11 +487,16 @@ locals {
     "jq",
     "network-manager",
     "frr",
+    "radvd",
   ]
 
   cloud_init_config_runcmd_template = [
     # Pick up new cluster interface
     "netplan apply",
+
+    # Disable Avahi, which may conflict with systemd-resolved
+    "systemctl disable --now avahi-daemon.socket",
+    "systemctl disable --now avahi-daemon.service",
 
     # Pick up new systemd-resolved configuration, enable mDNS
     "systemctl restart systemd-resolved",
@@ -382,15 +522,16 @@ locals {
       "/provision/cml.sh || echo 'CML provisioning failed.  Not rebooting' && false",
       "systemctl stop virl2.target",
       "systemctl disable --now virl2-remount-images.service",
-      "rm -rf /var/lib/libvirt/images/*",
+      "rm -rf /var/lib/libvirt/images/* || true",
       # FIXME cmm - Make a mount unit without caching
-      "echo 'bah-libvirt-images-ue1 /var/lib/libvirt/images fuse.gcsfuse ro,uid=64055,gid=987,allow_other,_netdev 1 1' >> /etc/fstab",
       "systemd daemon-reload",
-      "mount /var/lib/libvirt/images",
+      "mount /var/lib/libvirt/images || true",
       # Still need to export something, so computes are happy on install.
       "sed -i -e 's#^/var/lib/libvirt/images.*#/srv	fe80::%cluster/64(ro,sync,no_subtree_check,crossmnt,fsid=0,no_root_squash)#' /etc/exports",
       "exportfs -r",
       "systemctl start virl2.target",
+      # Start radvd for IPv6 autoconfiguration
+      "systemctl enable --now radvd",
     ]
   )
 

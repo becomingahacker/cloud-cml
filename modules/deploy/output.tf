@@ -12,7 +12,27 @@ output "public_ip" {
     module.azure[0].public_ip :
     (var.cfg.target == "gcp") ?
     module.gcp[0].public_ip :
-    "127.0.0.1"
+    "0.0.0.0"
+  )
+}
+
+output "public_ip_v6" {
+  value = (
+    (var.cfg.target == "gcp") ?
+    module.gcp[0].public_ip_v6 :
+    "::"
+  )
+}
+
+output "public_fqdn" {
+  value = (
+    (var.cfg.target == "aws") ?
+    module.aws[0].public_ip :
+    (var.cfg.target == "azure") ?
+    module.azure[0].public_ip :
+    (var.cfg.target == "gcp") ?
+    module.gcp[0].public_fqdn :
+    "example.com"
   )
 }
 
