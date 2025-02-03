@@ -570,7 +570,9 @@ resource "google_compute_address" "cml_controller_v6" {
 resource "google_compute_instance" "cml_control_instance" {
   name                      = var.options.cfg.common.controller_hostname
   machine_type              = var.options.cfg.gcp.controller_machine_type
-  allow_stopping_for_update = true
+  # WARNING: Changes to instance cause distruction of the instance and 
+  # recreation!
+  allow_stopping_for_update = false
 
   labels = {
     allow_public_ip_address = "true"
@@ -598,11 +600,11 @@ resource "google_compute_instance" "cml_control_instance" {
     interface    = "NVME"
   }
 
-  scheduling {
-    on_instance_stop_action {
-      discard_local_ssd = true
-    }
-  }
+  #scheduling {
+  #  on_instance_stop_action {
+  #    discard_local_ssd = true
+  #  }
+  #}
 
   # Use machine as a router & disable source address checking
   can_ip_forward = true

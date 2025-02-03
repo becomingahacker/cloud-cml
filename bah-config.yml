@@ -284,8 +284,9 @@ gcp:
   controller_machine_type: n2-standard-4
 
   # This varies based on machine type and attached hardware.  You should be 
-  # fairly safe using this with N2 series.
-  controller_primary_interface_name: ens4
+  # fairly safe using this with N2 series.  They do move around if you add 
+  # scratch disks, e.g. for GCS FUSE cache.
+  controller_primary_interface_name: ens5
 
   # Controller image family.  Provides access to the most recent custom image
   # for the control machine.  Leave empty to use 'ubuntu-2404-lts-amd64'.
