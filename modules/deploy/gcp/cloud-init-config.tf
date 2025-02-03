@@ -524,7 +524,7 @@ locals {
       "systemctl disable --now virl2-remount-images.service",
       "rm -rf /var/lib/libvirt/images/* || true",
       "systemctl daemon-reload",
-      # Mount GCS FUSE libvir images
+      # Mount GCS FUSE libvirt images
       "systemctl enable --now var-lib-libvirt-images.mount",
       # Still need to export something, so computes are happy on install.
       "sed -i -e 's#^/var/lib/libvirt/images.*#/srv	fe80::%cluster/64(ro,sync,no_subtree_check,crossmnt,fsid=0,no_root_squash)#' /etc/exports",
@@ -547,7 +547,7 @@ locals {
       # Remove the fstab entry
       "sed -i -e 's#^cml-controller.local.*#d' /etc/fstab",
       "systemctl daemon-reload",
-      # Mount GCS FUSE libvir images
+      # Mount GCS FUSE libvirt images
       "systemctl enable --now var-lib-libvirt-images.mount",
       # HACK cmm - Allow gcsfuse to work for /var/lib/libvirt/images. Keep the LLD happy.
       "sed -i 's/nfs4/fuse.gcsfuse/' /var/local/virl2/.local/lib/python3.12/site-packages/simple_drivers/low_level_driver/host_statistics.py",
