@@ -545,9 +545,9 @@ locals {
       "systemctl stop virl2.target",
       "systemctl disable --now virl2-remount-images.service",
       # Unmount NFS from controller
-      "umount /var/lib/libvirt/images",
+      "umount /var/lib/libvirt/images || true",
       # Remove the fstab entry
-      "sed -i -e 's#^cml-controller.local.*#d' /etc/fstab",
+      "sed -i '/^cml-controller.local.*/d' /etc/fstab",
       "systemctl daemon-reload",
       # Mount GCS FUSE libvirt images
       "systemctl enable --now var-lib-libvirt-images.mount",
