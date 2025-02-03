@@ -593,6 +593,17 @@ resource "google_compute_instance" "cml_control_instance" {
     }
   }
 
+  # GCS FUSE Cache
+  scratch_disk {
+    interface    = "NVME"
+  }
+
+  scheduling {
+    on_instance_stop_action {
+      discard_local_ssd = true
+    }
+  }
+
   # Use machine as a router & disable source address checking
   can_ip_forward = true
 
@@ -626,6 +637,12 @@ resource "google_compute_instance" "cml_control_instance" {
 
   advanced_machine_features {
     enable_nested_virtualization = true
+  }
+
+  shielded_instance_config {
+    enable_secure_boot          = true
+    enable_vtpm                 = true
+    enable_integrity_monitoring = false
   }
 }
 

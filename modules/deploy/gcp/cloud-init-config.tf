@@ -532,6 +532,8 @@ locals {
       "systemctl start virl2.target",
       # Start radvd for IPv6 autoconfiguration
       "systemctl enable --now radvd",
+      # FIXME cmm - Needs to be made persistent
+      "resolvectl mdns virbr1 no",
     ]
   )
 
