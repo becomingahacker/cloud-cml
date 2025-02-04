@@ -229,6 +229,8 @@ gcp:
       bgp:
         remote_as: 65001
         ipv4:
+          # Originate a default route, 0.0.0.0/0.  Likely needed if the lab 
+          # needs Internet access.
           originate_default: true
           # Intentionally crappy prefix lists.  Let the students be creative, but
           # not _too_ creative.  The Google Cloud prefixes won't work past,
@@ -239,44 +241,187 @@ gcp:
           # believe Google uses different ranges for their own APIs, which
           # should not be included.  I'll probably have to "eat my hat" later
           # if I'm wrong.
+          # https://www.gstatic.com/ipranges/cloud.json
+          # https://github.com/femueller/cloud-ip-ranges
           allow_in:
-            # GOOGLE-CLOUD
-            # NET-35-208-0-0-1
+            # GOOGLE-CLOUD us-east1
             - cidr: 35.208.0.0/12
               le: 32
             - cidr: 35.224.0.0/12
               le: 32
             - cidr: 35.240.0.0/13
+              le: 32
+            - cidr: 34.23.0.0/16
+              le: 32
+            - cidr: 34.24.0.0/15
+              le: 32
+            - cidr: 34.26.0.0/16
+              le: 32
+            - cidr: 34.73.0.0/16
+              le: 32
+            - cidr: 34.74.0.0/15
+              le: 32
+            - cidr: 34.98.128.0/21
+              le: 32
+            - cidr: 34.112.0.0/16
+              le: 32
+            - cidr: 34.118.250.0/23
+              le: 32
+            - cidr: 34.138.0.0/15
+              le: 32
+            - cidr: 34.148.0.0/16
+              le: 32
+            - cidr: 34.152.72.0/21
+              le: 32
+            - cidr: 34.177.40.0/21
+              le: 32
+            - cidr: 35.185.0.0/17
+              le: 32
+            - cidr: 35.190.128.0/18
+              le: 32
+            - cidr: 35.196.0.0/16
+              le: 32
+            - cidr: 35.207.0.0/18
+              le: 32
+            - cidr: 35.211.0.0/16
+              le: 32
+            - cidr: 35.220.0.0/20
+              le: 32
+            - cidr: 35.227.0.0/17
+              le: 32
+            - cidr: 35.229.16.0/20
+              le: 32
+            - cidr: 35.229.32.0/19
+              le: 32
+            - cidr: 35.229.64.0/18
+              le: 32
+            - cidr: 35.231.0.0/16
+              le: 32
+            - cidr: 35.237.0.0/16
+              le: 32
+            - cidr: 35.242.0.0/20
+              le: 32
+            - cidr: 35.243.128.0/17
+              le: 32
+            - cidr: 104.196.0.0/18
+              le: 32
+            - cidr: 104.196.65.0/24
+              le: 32
+            - cidr: 104.196.66.0/23
+              le: 32
+            - cidr: 104.196.68.0/22
+              le: 32
+            - cidr: 104.196.96.0/19
+              le: 32
+            - cidr: 104.196.128.0/18
+              le: 32
+            - cidr: 104.196.192.0/19
+              le: 32
+            - cidr: 162.216.148.0/22
               le: 32
             # Labs
             - cidr: 10.0.0.0/9
               le: 32
           allow_out:
+            # GOOGLE-CLOUD us-east1
             - cidr: 35.208.0.0/12
               le: 32
             - cidr: 35.224.0.0/12
               le: 32
             - cidr: 35.240.0.0/13
               le: 32
+            - cidr: 34.23.0.0/16
+              le: 32
+            - cidr: 34.24.0.0/15
+              le: 32
+            - cidr: 34.26.0.0/16
+              le: 32
+            - cidr: 34.73.0.0/16
+              le: 32
+            - cidr: 34.74.0.0/15
+              le: 32
+            - cidr: 34.98.128.0/21
+              le: 32
+            - cidr: 34.112.0.0/16
+              le: 32
+            - cidr: 34.118.250.0/23
+              le: 32
+            - cidr: 34.138.0.0/15
+              le: 32
+            - cidr: 34.148.0.0/16
+              le: 32
+            - cidr: 34.152.72.0/21
+              le: 32
+            - cidr: 34.177.40.0/21
+              le: 32
+            - cidr: 35.185.0.0/17
+              le: 32
+            - cidr: 35.190.128.0/18
+              le: 32
+            - cidr: 35.196.0.0/16
+              le: 32
+            - cidr: 35.207.0.0/18
+              le: 32
+            - cidr: 35.211.0.0/16
+              le: 32
+            - cidr: 35.220.0.0/20
+              le: 32
+            - cidr: 35.227.0.0/17
+              le: 32
+            - cidr: 35.229.16.0/20
+              le: 32
+            - cidr: 35.229.32.0/19
+              le: 32
+            - cidr: 35.229.64.0/18
+              le: 32
+            - cidr: 35.231.0.0/16
+              le: 32
+            - cidr: 35.237.0.0/16
+              le: 32
+            - cidr: 35.242.0.0/20
+              le: 32
+            - cidr: 35.243.128.0/17
+              le: 32
+            - cidr: 104.196.0.0/18
+              le: 32
+            - cidr: 104.196.65.0/24
+              le: 32
+            - cidr: 104.196.66.0/23
+              le: 32
+            - cidr: 104.196.68.0/22
+              le: 32
+            - cidr: 104.196.96.0/19
+              le: 32
+            - cidr: 104.196.128.0/18
+              le: 32
+            - cidr: 104.196.192.0/19
+              le: 32
+            - cidr: 162.216.148.0/22
+              le: 32
             - cidr: 10.0.0.0/9
               le: 32
+            # Default
             - cidr: 0.0.0.0/0
         ipv6:
+          # Originate a default route, ::/0.  Likely needed if the lab 
+          # needs Internet access
           originate_default: true
           allow_in:
-            # GOOGLE-CLOUD
-            # NET6-2600-1900-1
-            - cidr: 2600:1900::/28
+            # GOOGLE-CLOUD us-east1
+            - cidr: 2600:1900:4020::/44
               ge: 96
             # OORTIO-IPV6-01/STO-ASIG
             # https://whois.arin.net/rest/net/NET6-2602-80A-F004-1
             - cidr: 2602:80a:f004:100::/56
               ge: 64
           allow_out:
-            - cidr: 2600:1900::/28
+            # GOOGLE-CLOUD us-east1
+            - cidr: 2600:1900:4020::/44
               ge: 96
+            # OORTIO-IPV6-01/STO-ASIG
             - cidr: 2602:80a:f004:100::/56
               ge: 64
+            # Default
             - cidr: ::/0
 
   # Controller machine type.  4 VCPUs or higher are required.

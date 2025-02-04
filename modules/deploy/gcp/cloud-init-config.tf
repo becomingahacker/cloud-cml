@@ -200,9 +200,9 @@ locals {
               <range start='${cidrhost(config.cidr, 128)}' end='%{if config.gateway == "last"}${cidrhost(config.cidr, -3)}%{else}${cidrhost(config.cidr, -2)}%{endif}'/>
             </dhcp>
           </ip>
-          <ip family='ipv6' address='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),config.gateway == "last" ? 65534 : 1)}' prefix='112'>
+          <ip family='ipv6' address='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),config.gateway == "last" ? 65535 : 1)}' prefix='112'>
             <dhcp>
-              <range start='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),32768)}' end='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),65533)}'/>
+              <range start='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),32768)}' end='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),65534)}'/>
             </dhcp>
           </ip>
         </network>
@@ -337,13 +337,13 @@ locals {
            %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
            %{ if try(config.bgp, null) != null }
             neighbor CML_${network_name} activate
-           %{ if try(config.bgp.ipv4.default_originate, false) }
+           %{ if try(config.bgp.ipv4.originate_default, false) }
             neighbor CML_${network_name} default-originate
            %{ endif }
             neighbor CML_${network_name} route-map CML_${network_name}_IN in
             neighbor CML_${network_name} route-map CML_${network_name}_OUT out
             neighbor CML_${network_name}_V6 activate
-           %{ if try(config.bgp.ipv4.default_originate, false) }
+           %{ if try(config.bgp.ipv4.originate_default, false) }
             neighbor CML_${network_name}_V6 default-originate
            %{ endif }
             neighbor CML_${network_name}_V6 route-map CML_${network_name}_IN in
@@ -505,7 +505,7 @@ locals {
     "echo -n 'Cluster link scope: ' && resolvectl status cluster | awk '/Current Scopes/ { print $3 }'",
 
     # TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
-    "systemctl disable --now firewalld",
+    "systemctl enable --now firewalld",
 
     # Enable BGP daemon and restart FRR.  cml.sh will configure the rest.
     "sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons",
@@ -514,6 +514,11 @@ locals {
     # TODO cmm - Disable Google OSConfig.  It blocks shutdowns right now.  Need
     # to figure out why.
     "systemctl disable --now google-osconfig-agent.service",
+
+    "firewall-cmd --permanent --new-service=vxlan",
+    "firewall-cmd --permanent --service=vxlan --port=4789/udp",
+    "firewall-cmd --permanent --service=vxlan --add-source-port=32768-60999/udp",
+    "firewall-cmd --reload",
   ]
 
   cloud_init_config_runcmd_controller = concat(local.cloud_init_config_runcmd_template,
@@ -534,6 +539,11 @@ locals {
       "systemctl enable --now radvd",
       # FIXME cmm - Needs to be made persistent
       "resolvectl mdns virbr1 no",
+      # FIXME cmm - why doesn't this service work but the port does?
+      "firewall-cmd --permanent --zone=public --add-service=bgp",
+      "firewall-cmd --permanent --zone=public --add-port=179/tcp",
+      "firewall-cmd --permanent --zone=public --add-service=vxlan",
+      "firewall-cmd --reload",
     ]
   )
 
@@ -554,6 +564,10 @@ locals {
       # HACK cmm - Allow gcsfuse to work for /var/lib/libvirt/images. Keep the LLD happy.
       "sed -i 's/nfs4/fuse.gcsfuse/' /var/local/virl2/.local/lib/python3.12/site-packages/simple_drivers/low_level_driver/host_statistics.py",
       "systemctl start virl2.target",
+
+      "firewall-cmd --permanent --zone=cluster-internal --add-port=1122/tcp",
+      "firewall-cmd --permanent --zone=public --add-service=vxlan",
+      "firewall-cmd --reload",
     ]
   )
 
