@@ -343,7 +343,7 @@ locals {
             neighbor CML_${network_name} route-map CML_${network_name}_IN in
             neighbor CML_${network_name} route-map CML_${network_name}_OUT out
             neighbor CML_${network_name}_V6 activate
-           %{ if try(config.bgp.ipv4.originate_default, false) }
+           %{ if try(config.bgp.ipv6.originate_default, false) }
             neighbor CML_${network_name}_V6 default-originate
            %{ endif }
             neighbor CML_${network_name}_V6 route-map CML_${network_name}_IN in
