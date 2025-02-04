@@ -319,6 +319,7 @@ locals {
            %{ if try(config.bgp, null) != null }
            neighbor CML_${network_name} peer-group
            neighbor CML_${network_name} remote-as ${config.bgp.remote_as}
+           neighbor CML_${network_name} ttl-security hops 1
            bgp listen range ${config.cidr} peer-group CML_${network_name}
            neighbor CML_${network_name}_V6 peer-group
            neighbor CML_${network_name}_V6 remote-as ${config.bgp.remote_as}
