@@ -245,12 +245,6 @@ gcp:
           # https://github.com/femueller/cloud-ip-ranges
           allow_in:
             # GOOGLE-CLOUD us-east1
-            - cidr: 35.208.0.0/12
-              le: 32
-            - cidr: 35.224.0.0/12
-              le: 32
-            - cidr: 35.240.0.0/13
-              le: 32
             - cidr: 34.23.0.0/16
               le: 32
             - cidr: 34.24.0.0/15
@@ -324,12 +318,6 @@ gcp:
               le: 32
           allow_out:
             # GOOGLE-CLOUD us-east1
-            - cidr: 35.208.0.0/12
-              le: 32
-            - cidr: 35.224.0.0/12
-              le: 32
-            - cidr: 35.240.0.0/13
-              le: 32
             - cidr: 34.23.0.0/16
               le: 32
             - cidr: 34.24.0.0/15
@@ -468,8 +456,8 @@ gcp:
   # is 'spot'.  If still specified and compute_machine_provisioning_model
   # is 'on-demand', this value will be used to create an instance group with zero
   # instances for easy scale-up of inexpensive, but unreliable, machines.
-  #compute_spot_machine_type: n2-highmem-32
-  compute_spot_machine_type: n2-highmem-4
+  compute_spot_machine_type: n2-highmem-32
+  #compute_spot_machine_type: n2-highmem-4
 
   # This varies based on machine type.  You should be fairly safe using these
   # with N2 series.  They do move around if you add local storage, e.g. for 

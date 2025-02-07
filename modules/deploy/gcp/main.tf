@@ -327,7 +327,7 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
     src_address_groups = [google_network_security_address_group.cml_allowed_subnets_address_group.id]
 
     dest_ip_ranges = [
-      google_compute_address.cml_controller.address,
+      google_compute_address.cml_controller_internal.address,
     ]
 
     layer4_configs {
@@ -400,7 +400,7 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
     src_address_groups = [google_network_security_address_group.cml_allowed_subnets_address_group.id]
 
     dest_ip_ranges = [
-      google_compute_address.cml_controller.address,
+      google_compute_address.cml_controller_internal.address,
     ]
 
     layer4_configs {
@@ -548,7 +548,6 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   }
 }
 
-
 resource "google_compute_address" "cml_controller_internal" {
   name         = "cml-controller-internal-${var.options.rand_id}"
   address_type = "INTERNAL"
@@ -568,8 +567,8 @@ resource "google_compute_address" "cml_controller_v6" {
 }
 
 resource "google_compute_instance" "cml_control_instance" {
-  name                      = var.options.cfg.common.controller_hostname
-  machine_type              = var.options.cfg.gcp.controller_machine_type
+  name         = var.options.cfg.common.controller_hostname
+  machine_type = var.options.cfg.gcp.controller_machine_type
   # WARNING: Changes to instance cause distruction of the instance and 
   # recreation!
   allow_stopping_for_update = false
@@ -597,7 +596,7 @@ resource "google_compute_instance" "cml_control_instance" {
 
   # GCS FUSE Cache
   scratch_disk {
-    interface    = "NVME"
+    interface = "NVME"
   }
 
   #scheduling {
@@ -692,19 +691,20 @@ resource "google_compute_health_check" "cml_health_check" {
 
 # NEG for labs routed through the controller.  Used by Passthrough Network Loadbalancers.
 resource "google_compute_network_endpoint_group" "cml_controller_lab_neg" {
-  name = "cml-controller-lab-neg-${var.options.rand_id}"
+  name                  = "cml-controller-lab-neg-${var.options.rand_id}"
   network               = local.cml_network.id
   subnetwork            = google_compute_subnetwork.cml_subnet.id
   zone                  = var.options.cfg.gcp.zone
   network_endpoint_type = "GCE_VM_IP"
 }
 
-resource "google_compute_network_endpoint" "cml_controller_endpoint" {
-  network_endpoint_group = google_compute_network_endpoint_group.cml_controller_lab_neg.name
-
-  instance   = google_compute_instance.cml_control_instance.name
-  ip_address = google_compute_instance.cml_control_instance.network_interface[0].network_ip
-}
+# FIXME cmm - Add this back.  Saving time right now.
+#resource "google_compute_network_endpoint" "cml_controller_endpoint" {
+#  network_endpoint_group = google_compute_network_endpoint_group.cml_controller_lab_neg.name
+#
+#  instance   = google_compute_instance.cml_control_instance.name
+#  ip_address = google_compute_instance.cml_control_instance.network_interface[0].network_ip
+#}
 
 data "google_compute_machine_types" "cml_compute_on_demand" {
   filter = "name = \"${var.options.cfg.gcp.compute_on_demand_machine_type}\""
@@ -821,6 +821,24 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
     interface    = "NVME"
     disk_size_gb = 375
   }
+  disk {
+    type         = "SCRATCH"
+    disk_type    = "local-ssd"
+    interface    = "NVME"
+    disk_size_gb = 375
+  }
+  disk {
+    type         = "SCRATCH"
+    disk_type    = "local-ssd"
+    interface    = "NVME"
+    disk_size_gb = 375
+  }
+  disk {
+    type         = "SCRATCH"
+    disk_type    = "local-ssd"
+    interface    = "NVME"
+    disk_size_gb = 375
+  }
 
   # Use machine as a router & disable source address checking
   can_ip_forward = true
@@ -871,11 +889,25 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   }
 }
 
-resource "google_compute_instance_group_manager" "cml_compute_instance_group_manager" {
+data "google_compute_zones" "cml_compute_zones_available" {
+  region = var.options.cfg.gcp.region
+}
+
+resource "google_compute_region_instance_group_manager" "cml_compute_instance_group_manager" {
   name = "cml-compute-instance-group-manager-${var.options.rand_id}"
 
   base_instance_name = var.options.cfg.cluster.compute_hostname_prefix
-  zone               = var.options.cfg.gcp.zone
+
+  distribution_policy_zones        = [for zone in data.google_compute_zones.cml_compute_zones_available.names : zone]
+  distribution_policy_target_shape = "EVEN"
+
+  update_policy {
+    type                         = "OPPORTUNISTIC"
+    instance_redistribution_type = "NONE"
+    minimal_action               = "REPLACE"
+    replacement_method           = "RECREATE"
+    max_unavailable_fixed        = length(data.google_compute_zones.cml_compute_zones_available.names)
+  }
 
   version {
     instance_template = var.options.cfg.gcp.compute_machine_provisioning_model == "on-demand" ? google_compute_region_instance_template.cml_compute_region_instance_template.id : google_compute_region_instance_template.cml_compute_region_instance_template_spot.id
@@ -1062,10 +1094,10 @@ resource "google_compute_backend_service" "cml_backend_controller" {
   }
 
   ip_address_selection_policy = "IPV6_ONLY"
-  protocol         = "HTTPS"
-  port_name        = "https"
-  security_policy  = google_compute_security_policy.cml_security_policy.id
-  session_affinity = "NONE"
+  protocol                    = "HTTPS"
+  port_name                   = "https"
+  security_policy             = google_compute_security_policy.cml_security_policy.id
+  session_affinity            = "NONE"
 }
 
 resource "google_compute_url_map" "cml_lb_http_redirect" {
