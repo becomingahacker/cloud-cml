@@ -594,6 +594,7 @@ locals {
       "firewall-cmd --permanent --new-policy=cml_labs",
       "firewall-cmd --permanent --policy=cml_labs --add-ingress-zone=dmz",
       "firewall-cmd --permanent --policy=cml_labs --add-egress-zone=public",
+      "firewall-cmd --permanent --policy=cml_labs  --set-target=ACCEPT",
       "firewall-cmd --reload",
     ]
   )

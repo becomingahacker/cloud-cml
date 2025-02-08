@@ -698,13 +698,12 @@ resource "google_compute_network_endpoint_group" "cml_controller_lab_neg" {
   network_endpoint_type = "GCE_VM_IP"
 }
 
-# FIXME cmm - Add this back.  Saving time right now.
-#resource "google_compute_network_endpoint" "cml_controller_endpoint" {
-#  network_endpoint_group = google_compute_network_endpoint_group.cml_controller_lab_neg.name
-#
-#  instance   = google_compute_instance.cml_control_instance.name
-#  ip_address = google_compute_instance.cml_control_instance.network_interface[0].network_ip
-#}
+resource "google_compute_network_endpoint" "cml_controller_endpoint" {
+  network_endpoint_group = google_compute_network_endpoint_group.cml_controller_lab_neg.name
+
+  instance   = google_compute_instance.cml_control_instance.name
+  ip_address = google_compute_instance.cml_control_instance.network_interface[0].network_ip
+}
 
 data "google_compute_machine_types" "cml_compute_on_demand" {
   filter = "name = \"${var.options.cfg.gcp.compute_on_demand_machine_type}\""
