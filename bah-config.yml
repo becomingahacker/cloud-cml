@@ -592,8 +592,8 @@ license:
 # also a corresponding image! A smaller selection: less copying, faster bring-up
 # time!
 refplat:
-  definitions:
-    - alpine
+  definitions: []
+    # - alpine
     # - alpine-trex
     # - alpine-wanem
     # - asav
@@ -615,8 +615,8 @@ refplat:
     # - nxosv9000
     # - server
     # - ubuntu
-  images:
-    - alpine-base-3-19-1
+  images: []
+    # - alpine-base-3-19-1
     # - alpine-trex-3-19-1
     # - alpine-wanem-3-19-1
     # - asav-9-20-2

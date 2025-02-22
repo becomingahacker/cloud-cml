@@ -197,6 +197,15 @@ locals {
           WantedBy=multi-user.target
         EOF
       },
+      {
+        path        = "/etc/tmpfiles.d/sshd.conf"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          # Create sshd privilege separation directory
+          d /run/sshd 0755 root root
+        EOF
+      },
     ],
     [for script in var.options.cfg.app.customize : {
       path        = "/provision/${script}"
@@ -224,9 +233,9 @@ locals {
               <range start='${cidrhost(config.cidr, 128)}' end='%{if config.gateway == "last"}${cidrhost(config.cidr, -3)}%{else}${cidrhost(config.cidr, -2)}%{endif}'/>
             </dhcp>
           </ip>
-          <ip family='ipv6' address='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),config.gateway == "last" ? 65535 : 1)}' prefix='112'>
+          <ip family='ipv6' address='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1), config.gateway == "last" ? 65535 : 1)}' prefix='112'>
             <dhcp>
-              <range start='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),32768)}' end='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1),65534)}'/>
+              <range start='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1), 32768)}' end='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1), 65534)}'/>
             </dhcp>
           </ip>
         </network>
@@ -260,6 +269,8 @@ locals {
                 macaddress   = "random"
                 mac-learning = false
                 link-local   = []
+                dhcp4        = false
+                dhcp6        = false
               }
             }
             bridges = {
@@ -274,6 +285,8 @@ locals {
                 # Fixed MAC address for the controller, so IPv6 link-local is stable.
                 macaddress = local.cluster_controller_interface_mac
                 link-local = ["ipv6"]
+                dhcp4      = false
+                dhcp6      = false
               }
             }
           }
@@ -283,13 +296,13 @@ locals {
         path        = "/etc/frr/frr-base.conf"
         owner       = "root:root"
         permissions = "0640"
-        content = <<-EOF
+        content     = <<-EOF
           ! 
-          %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
-          %{ if try(config.bgp, null) != null }
-          %{ for i in range(length(config.bgp.ipv4.allow_out)) }
-          ip prefix-list CML_${network_name}_OUT seq ${i+1} permit ${config.bgp.ipv4.allow_out[i].cidr}%{ if try(config.bgp.ipv4.allow_out[i].le, null) != null } le ${config.bgp.ipv4.allow_out[i].le}%{endif}%{ if try(config.bgp.ipv4.allow_out[i].ge, null) != null } ge ${config.bgp.ipv4.allow_out[i].ge}%{endif }
-          %{ endfor }
+          %{for network_name, config in var.options.cfg.gcp.cml_custom_external_connections}
+          %{if try(config.bgp, null) != null}
+          %{for i in range(length(config.bgp.ipv4.allow_out))}
+          ip prefix-list CML_${network_name}_OUT seq ${i + 1} permit ${config.bgp.ipv4.allow_out[i].cidr}%{if try(config.bgp.ipv4.allow_out[i].le, null) != null} le ${config.bgp.ipv4.allow_out[i].le}%{endif}%{if try(config.bgp.ipv4.allow_out[i].ge, null) != null} ge ${config.bgp.ipv4.allow_out[i].ge}%{endif}
+          %{endfor}
           !
           route-map CML_${network_name}_OUT permit 10
            match ip address prefix-list CML_${network_name}_OUT
@@ -298,9 +311,9 @@ locals {
           route-map CML_${network_name}_OUT deny 20
           exit
           !
-          %{ for i in range(length(config.bgp.ipv4.allow_in)) }
-          ip prefix-list CML_${network_name}_IN seq ${i+1} permit ${config.bgp.ipv4.allow_in[i].cidr}%{if try(config.bgp.ipv4.allow_in[i].le, null) != null } le ${config.bgp.ipv4.allow_in[i].le}%{endif }%{if try(config.bgp.ipv4.allow_in[i].ge, null) != null } ge ${config.bgp.ipv4.allow_in[i].ge}%{endif }
-          %{ endfor }
+          %{for i in range(length(config.bgp.ipv4.allow_in))}
+          ip prefix-list CML_${network_name}_IN seq ${i + 1} permit ${config.bgp.ipv4.allow_in[i].cidr}%{if try(config.bgp.ipv4.allow_in[i].le, null) != null} le ${config.bgp.ipv4.allow_in[i].le}%{endif}%{if try(config.bgp.ipv4.allow_in[i].ge, null) != null} ge ${config.bgp.ipv4.allow_in[i].ge}%{endif}
+          %{endfor}
           !
           route-map CML_${network_name}_IN permit 10
            match ip address prefix-list CML_${network_name}_IN
@@ -309,9 +322,9 @@ locals {
           route-map CML_${network_name}_IN deny 20
           exit
           !
-          %{ for i in range(length(config.bgp.ipv6.allow_out)) }
-          ipv6 prefix-list CML_${network_name}_OUT_V6 seq ${i+1} permit ${config.bgp.ipv6.allow_out[i].cidr}%{if try(config.bgp.ipv6.allow_out[i].le, null) != null } le ${config.bgp.ipv6.allow_out[i].le}%{endif }%{if try(config.bgp.ipv6.allow_out[i].ge, null) != null } ge ${config.bgp.ipv6.allow_out[i].ge}%{endif }
-          %{ endfor }
+          %{for i in range(length(config.bgp.ipv6.allow_out))}
+          ipv6 prefix-list CML_${network_name}_OUT_V6 seq ${i + 1} permit ${config.bgp.ipv6.allow_out[i].cidr}%{if try(config.bgp.ipv6.allow_out[i].le, null) != null} le ${config.bgp.ipv6.allow_out[i].le}%{endif}%{if try(config.bgp.ipv6.allow_out[i].ge, null) != null} ge ${config.bgp.ipv6.allow_out[i].ge}%{endif}
+          %{endfor}
           !
           route-map CML_${network_name}_OUT_V6 permit 10
            match ipv6 address prefix-list CML_${network_name}_OUT_V6
@@ -320,9 +333,9 @@ locals {
           route-map CML_${network_name}_OUT_V6 deny 20
           exit
           !
-          %{ for i in range(length(config.bgp.ipv6.allow_in)) }
-          ipv6 prefix-list CML_${network_name}_IN_V6 seq ${i+1} permit ${config.bgp.ipv6.allow_in[i].cidr}%{if try(config.bgp.ipv6.allow_in[i].le, null) != null } le ${config.bgp.ipv6.allow_in[i].le}%{endif }%{if try(config.bgp.ipv6.allow_in[i].ge, null) != null } ge ${config.bgp.ipv6.allow_in[i].ge}%{endif }
-          %{ endfor }
+          %{for i in range(length(config.bgp.ipv6.allow_in))}
+          ipv6 prefix-list CML_${network_name}_IN_V6 seq ${i + 1} permit ${config.bgp.ipv6.allow_in[i].cidr}%{if try(config.bgp.ipv6.allow_in[i].le, null) != null} le ${config.bgp.ipv6.allow_in[i].le}%{endif}%{if try(config.bgp.ipv6.allow_in[i].ge, null) != null} ge ${config.bgp.ipv6.allow_in[i].ge}%{endif}
+          %{endfor}
           !
           route-map CML_${network_name}_IN_V6 permit 10
            match ipv6 address prefix-list CML_${network_name}_IN_V6
@@ -331,16 +344,16 @@ locals {
           route-map CML_${network_name}_IN_V6 deny 20
           exit
           !
-          %{ endif }
-          %{ endfor }
+          %{endif}
+          %{endfor}
           !
           router bgp ${local.cluster_bgp_as}
            bgp router-id ${google_compute_address.cml_controller_internal.address}
            neighbor VTEP peer-group
            neighbor VTEP remote-as ${local.cluster_bgp_as}
            bgp listen range ${google_compute_subnetwork.cml_subnet.ip_cidr_range} peer-group VTEP
-           %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
-           %{ if try(config.bgp, null) != null }
+           %{for network_name, config in var.options.cfg.gcp.cml_custom_external_connections}
+           %{if try(config.bgp, null) != null}
            neighbor CML_${network_name} peer-group
            neighbor CML_${network_name} remote-as ${config.bgp.remote_as}
            neighbor CML_${network_name} ttl-security hops 1
@@ -348,9 +361,9 @@ locals {
            neighbor CML_${network_name}_V6 peer-group
            neighbor CML_${network_name}_V6 remote-as ${config.bgp.remote_as}
            neighbor CML_${network_name}_V6 ttl-security hops 1 
-           bgp listen range ${cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1)} peer-group CML_${network_name}_V6
-           %{ endif }
-           %{ endfor }
+           bgp listen range ${cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1)} peer-group CML_${network_name}_V6
+           %{endif}
+           %{endfor}
            !
            address-family l2vpn evpn
             neighbor VTEP activate
@@ -360,38 +373,38 @@ locals {
            exit-address-family
            !
            address-family ipv4 unicast
-           %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
-           %{ if try(config.bgp, null) != null }
+           %{for network_name, config in var.options.cfg.gcp.cml_custom_external_connections}
+           %{if try(config.bgp, null) != null}
             neighbor CML_${network_name} activate
-           %{ if try(config.bgp.ipv4.originate_default, false) }
+           %{if try(config.bgp.ipv4.originate_default, false)}
             neighbor CML_${network_name} default-originate
-           %{ endif }
+           %{endif}
             neighbor CML_${network_name} route-map CML_${network_name}_IN in
             neighbor CML_${network_name} route-map CML_${network_name}_OUT out
             neighbor CML_${network_name}_V6 activate
-           %{ if try(config.bgp.ipv6.originate_default, false) }
+           %{if try(config.bgp.ipv6.originate_default, false)}
             neighbor CML_${network_name}_V6 default-originate
-           %{ endif }
+           %{endif}
             neighbor CML_${network_name}_V6 route-map CML_${network_name}_IN in
             neighbor CML_${network_name}_V6 route-map CML_${network_name}_OUT out
-           %{ endif }
-           %{ endfor }
+           %{endif}
+           %{endfor}
             neighbor VTEP activate
             neighbor VTEP route-reflector-client
             neighbor VTEP next-hop-self
            exit-address-family
            !
            address-family ipv6 unicast
-           %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
-           %{ if try(config.bgp, null) != null }
+           %{for network_name, config in var.options.cfg.gcp.cml_custom_external_connections}
+           %{if try(config.bgp, null) != null}
             neighbor CML_${network_name}_V6 activate
-           %{ if try(config.bgp.ipv6.originate_default, false) }
+           %{if try(config.bgp.ipv6.originate_default, false)}
             neighbor CML_${network_name}_V6 default-originate
-           %{ endif }
+           %{endif}
             neighbor CML_${network_name}_V6 route-map CML_${network_name}_IN_V6 in
             neighbor CML_${network_name}_V6 route-map CML_${network_name}_OUT_V6 out
-           %{ endif }
-           %{ endfor }
+           %{endif}
+           %{endfor}
            exit-address-family
           exit
           !
@@ -406,19 +419,19 @@ locals {
         permissions = "0640"
         # FIXME cmm - only supports one network right now
         content = <<-EOF
-          %{ for network_name, config in var.options.cfg.gcp.cml_custom_external_connections }
+          %{for network_name, config in var.options.cfg.gcp.cml_custom_external_connections}
           interface ${network_name}
           {
             AdvSendAdvert on;
             AdvManagedFlag on;
-            prefix ${cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}",16,1)}
+            prefix ${cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1)}
             {
               AdvOnLink on;
               AdvAutonomous on;
               AdvRouterAddr on;
             };
           };
-          %{ endfor }
+          %{endfor}
         EOF
       },
     ],
@@ -492,7 +505,7 @@ locals {
           !
         EOF
       },
-        
+
     ]
   )
 
@@ -508,11 +521,11 @@ locals {
   cloud_init_config_packages_controller = concat(local.cloud_init_config_packages_template,
     [
       "radvd",
-    ])
+  ])
 
   cloud_init_config_packages_compute = concat(local.cloud_init_config_packages_template,
     [
-    ])
+  ])
 
   cloud_init_config_runcmd_template = [
     # Disable Avahi, which may conflict with systemd-resolved for mDNS
@@ -594,8 +607,16 @@ locals {
       "firewall-cmd --permanent --new-policy=cml_labs",
       "firewall-cmd --permanent --policy=cml_labs --add-ingress-zone=dmz",
       "firewall-cmd --permanent --policy=cml_labs --add-egress-zone=public",
+      "firewall-cmd --permanent --policy=cml_labs --add-masquerade",
       "firewall-cmd --permanent --policy=cml_labs  --set-target=ACCEPT",
-      "firewall-cmd --reload",
+      # FIXME this breaks everything
+      ## So GCP can query a lab for DNS
+      #"firewall-cmd --permanent --new-policy=cml_labs_dns",
+      #"firewall-cmd --permanent --policy=cml_labs_dns --add-ingress-zone=public",
+      #"firewall-cmd --permanent --policy=cml_labs_dns --add-egress-zone=dmz",
+      #"firewall-cmd --permanent --policy=cml_labs_dns --add-service=dns",
+      #"firewall-cmd --permanent --policy=cml_labs_dns --set-target=ACCEPT",
+      #"firewall-cmd --reload",
     ]
   )
 

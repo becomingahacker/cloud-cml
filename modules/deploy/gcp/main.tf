@@ -368,12 +368,16 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
     }
 
     dest_ip_ranges = [
-      google_compute_address.cml_controller_v6.address,
+      google_compute_subnetwork.cml_subnet.external_ipv6_prefix
     ]
   }
 
   target_secure_tags {
     name = google_tags_tag_value.cml_tag_cml_controller.id
+  }
+
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_compute.id
   }
 }
 
@@ -698,6 +702,7 @@ resource "google_compute_network_endpoint_group" "cml_controller_lab_neg" {
   network_endpoint_type = "GCE_VM_IP"
 }
 
+# HACK cmm - comment below out to save time with the deploy/debug loop
 resource "google_compute_network_endpoint" "cml_controller_endpoint" {
   network_endpoint_group = google_compute_network_endpoint_group.cml_controller_lab_neg.name
 
