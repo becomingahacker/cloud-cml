@@ -527,6 +527,7 @@ locals {
   ])
 
   cloud_init_config_runcmd_template = [
+    "set -x",
     # Disable Avahi, which may conflict with systemd-resolved for mDNS
     "systemctl disable --now avahi-daemon.socket",
     "systemctl disable --now avahi-daemon.service",
@@ -560,7 +561,7 @@ locals {
     "systemctl disable --now google-osconfig-agent.service",
 
     "firewall-cmd --permanent --new-service=vxlan",
-    "firewall-cmd --permanent --service=vxlan --port=4789/udp",
+    "firewall-cmd --permanent --service=vxlan --add-port=4789/udp",
     "firewall-cmd --permanent --service=vxlan --add-source-port=32768-60999/udp",
     "firewall-cmd --reload",
 
@@ -608,6 +609,7 @@ locals {
       "firewall-cmd --permanent --policy=cml_labs --add-egress-zone=public",
       "firewall-cmd --permanent --policy=cml_labs --add-masquerade",
       "firewall-cmd --permanent --policy=cml_labs  --set-target=ACCEPT",
+      "firewall-cmd --reload",
     ]
   )
 
