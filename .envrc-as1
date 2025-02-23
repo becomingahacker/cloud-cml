@@ -4,12 +4,12 @@
 # All rights reserved.
 #
 
-# Becoming a Hacker CML configuration for US East 1 (South Carolina)
+# Becoming a Hacker CML configuration for Asia South 1 (Mumbai, India)
 
 #########
 # Configs
 #########
-export TF_VAR_cfg_file="bah-config.yml"
+export TF_VAR_cfg_file="bah-config-as1.yml"
 #export TF_VAR_cfg_extra_vars=""
 
 export CONJUR_APPLIANCE_URL="https://conjur-prod.cisco.com"

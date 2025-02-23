@@ -1,13 +1,11 @@
+#
 # This file is part of Cisco Modeling Labs
 # Copyright (c) 2019-2025, Cisco Systems, Inc.
 # All rights reserved.
 #
 
-# Becoming a Hacker CML configuration for US East 1 (South Carolina)
+# Becoming a Hacker CML configuration for Asia South 1 (Mumbai, India)
 
-# at this time, "aws", "azure", and "gcp" are defined targets
-# make sure that you ran the prepare.sh / prepare.bat script!
-# TODO cmm - change to gce?
 target: gcp
 
 aws:
@@ -66,8 +64,8 @@ gcp:
   # This zone is only used for controller, and the compute nodes will be spread
   # across available zones in the region. 
   project: gcp-asigbahgcp-nprd-47930
-  region: us-east1
-  zone: us-east1-b
+  region: asia-south1
+  zone: asia-south1-a
 
   # CML service account ID to use.  If left empty, a new service account will be
   # created using 'cml-service-account-' and a random suffix.  Otherwise
@@ -79,7 +77,7 @@ gcp:
   # cml2 packages and refplat images.
   bucket: bah-machine-images
   # Google Cloud Storage bucket for /var/lib/libvirt/images.  Required.
-  libvirt_images_bucket: bah-libvirt-images-ue1
+  libvirt_images_bucket: bah-libvirt-images-as1
 
   # Create a new network.  If set to 'false', the network indicated by
   # 'network_name' is used.
@@ -249,148 +247,101 @@ gcp:
           # https://www.gstatic.com/ipranges/cloud.json
           # https://github.com/femueller/cloud-ip-ranges
           allow_in:
-            # GOOGLE-CLOUD us-east1
-            - cidr: 34.23.0.0/16
+            # GOOGLE-CLOUD asia-south1
+            - cidr: 34.0.227.0/24
               le: 32
-            - cidr: 34.24.0.0/15
+            - cidr: 34.14.128.0/18
               le: 32
-            - cidr: 34.26.0.0/16
+            - cidr: 34.47.128.0/17
               le: 32
-            - cidr: 34.73.0.0/16
+            - cidr: 34.93.0.0/16
               le: 32
-            - cidr: 34.74.0.0/15
+            - cidr: 34.100.128.0/17
               le: 32
-            - cidr: 34.98.128.0/21
+            - cidr: 34.104.108.0/23
               le: 32
-            - cidr: 34.112.0.0/16
+            - cidr: 34.124.44.0/23
               le: 32
-            - cidr: 34.118.250.0/23
+            - cidr: 34.152.64.0/22
               le: 32
-            - cidr: 34.138.0.0/15
+            - cidr: 34.152.106.0/23
               le: 32
-            - cidr: 34.148.0.0/16
+            - cidr: 34.153.58.0/23
               le: 32
-            - cidr: 34.152.72.0/21
+            - cidr: 34.153.250.0/23
               le: 32
-            - cidr: 34.177.40.0/21
+            - cidr: 34.157.87.0/24
               le: 32
-            - cidr: 35.185.0.0/17
+            - cidr: 34.157.215.0/24
               le: 32
-            - cidr: 35.190.128.0/18
+            - cidr: 34.177.32.0/22
               le: 32
-            - cidr: 35.196.0.0/16
+            - cidr: 34.177.74.0/23
               le: 32
-            - cidr: 35.207.0.0/18
+            - cidr: 35.200.128.0/17
               le: 32
-            - cidr: 35.211.0.0/16
+            - cidr: 35.201.41.0/24
               le: 32
-            - cidr: 35.220.0.0/20
+            - cidr: 35.207.192.0/18
               le: 32
-            - cidr: 35.227.0.0/17
+            - cidr: 35.220.42.0/24
               le: 32
-            - cidr: 35.229.16.0/20
+            - cidr: 35.234.208.0/20
               le: 32
-            - cidr: 35.229.32.0/19
+            - cidr: 35.242.42.0/24
               le: 32
-            - cidr: 35.229.64.0/18
-              le: 32
-            - cidr: 35.231.0.0/16
-              le: 32
-            - cidr: 35.237.0.0/16
-              le: 32
-            - cidr: 35.242.0.0/20
-              le: 32
-            - cidr: 35.243.128.0/17
-              le: 32
-            - cidr: 104.196.0.0/18
-              le: 32
-            - cidr: 104.196.65.0/24
-              le: 32
-            - cidr: 104.196.66.0/23
-              le: 32
-            - cidr: 104.196.68.0/22
-              le: 32
-            - cidr: 104.196.96.0/19
-              le: 32
-            - cidr: 104.196.128.0/18
-              le: 32
-            - cidr: 104.196.192.0/19
-              le: 32
-            - cidr: 162.216.148.0/22
+            - cidr: 35.244.0.0/18
               le: 32
             # Labs
             - cidr: 10.0.0.0/9
               le: 32
           allow_out:
-            # GOOGLE-CLOUD us-east1
-            - cidr: 34.23.0.0/16
+            # GOOGLE-CLOUD asia-south1
+            - cidr: 34.0.227.0/24
               le: 32
-            - cidr: 34.24.0.0/15
+            - cidr: 34.14.128.0/18
               le: 32
-            - cidr: 34.26.0.0/16
+            - cidr: 34.47.128.0/17
               le: 32
-            - cidr: 34.73.0.0/16
+            - cidr: 34.93.0.0/16
               le: 32
-            - cidr: 34.74.0.0/15
+            - cidr: 34.100.128.0/17
               le: 32
-            - cidr: 34.98.128.0/21
+            - cidr: 34.104.108.0/23
               le: 32
-            - cidr: 34.112.0.0/16
+            - cidr: 34.124.44.0/23
               le: 32
-            - cidr: 34.118.250.0/23
+            - cidr: 34.152.64.0/22
               le: 32
-            - cidr: 34.138.0.0/15
+            - cidr: 34.152.106.0/23
               le: 32
-            - cidr: 34.148.0.0/16
+            - cidr: 34.153.58.0/23
               le: 32
-            - cidr: 34.152.72.0/21
+            - cidr: 34.153.250.0/23
               le: 32
-            - cidr: 34.177.40.0/21
+            - cidr: 34.157.87.0/24
               le: 32
-            - cidr: 35.185.0.0/17
+            - cidr: 34.157.215.0/24
               le: 32
-            - cidr: 35.190.128.0/18
+            - cidr: 34.177.32.0/22
               le: 32
-            - cidr: 35.196.0.0/16
+            - cidr: 34.177.74.0/23
               le: 32
-            - cidr: 35.207.0.0/18
+            - cidr: 35.200.128.0/17
               le: 32
-            - cidr: 35.211.0.0/16
+            - cidr: 35.201.41.0/24
               le: 32
-            - cidr: 35.220.0.0/20
+            - cidr: 35.207.192.0/18
               le: 32
-            - cidr: 35.227.0.0/17
+            - cidr: 35.220.42.0/24
               le: 32
-            - cidr: 35.229.16.0/20
+            - cidr: 35.234.208.0/20
               le: 32
-            - cidr: 35.229.32.0/19
+            - cidr: 35.242.42.0/24
               le: 32
-            - cidr: 35.229.64.0/18
+            - cidr: 35.244.0.0/18
               le: 32
-            - cidr: 35.231.0.0/16
-              le: 32
-            - cidr: 35.237.0.0/16
-              le: 32
-            - cidr: 35.242.0.0/20
-              le: 32
-            - cidr: 35.243.128.0/17
-              le: 32
-            - cidr: 104.196.0.0/18
-              le: 32
-            - cidr: 104.196.65.0/24
-              le: 32
-            - cidr: 104.196.66.0/23
-              le: 32
-            - cidr: 104.196.68.0/22
-              le: 32
-            - cidr: 104.196.96.0/19
-              le: 32
-            - cidr: 104.196.128.0/18
-              le: 32
-            - cidr: 104.196.192.0/19
-              le: 32
-            - cidr: 162.216.148.0/22
-              le: 32
+            # Labs
             - cidr: 10.0.0.0/9
               le: 32
             # Default
@@ -401,18 +352,20 @@ gcp:
           originate_default: true
           allow_in:
             # GOOGLE-CLOUD us-east1
-            - cidr: 2600:1900:4020::/44
+            - cidr: 2600:1900:40a0::/44
               ge: 96
-            # OORTIO-IPV6-01/STO-ASIG
+            # OORTIO-IPV6-01/STO-ASIG asia-south1 
             # https://whois.arin.net/rest/net/NET6-2602-80A-F004-1
-            - cidr: 2602:80a:f004:100::/56
+            # BYOIP nlb-2602-080a-f005-100-56
+            - cidr: 2602:80a:f005:100::/56
               ge: 64
           allow_out:
             # GOOGLE-CLOUD us-east1
-            - cidr: 2600:1900:4020::/44
+            - cidr: 2600:1900:40a0::/44
               ge: 96
-            # OORTIO-IPV6-01/STO-ASIG
-            - cidr: 2602:80a:f004:100::/56
+            # OORTIO-IPV6-01/STO-ASIG asia-south1
+            # BYOIP nlb-2602-080a-f005-100-56
+            - cidr: 2602:80a:f005:100::/56
               ge: 64
             # Default
             - cidr: ::/0

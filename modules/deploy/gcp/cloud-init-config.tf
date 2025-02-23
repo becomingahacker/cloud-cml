@@ -186,8 +186,7 @@ locals {
           After=srv-data-gcsfuse\x2dcache.mount
   
           [Mount]
-          # FIXME cmm - Allow bucket name to be specified
-          What=bah-libvirt-images-ue1
+          What=${var.options.cfg.gcp.libvirt_images_bucket}
           Where=/var/lib/libvirt/images
           Type=fuse.gcsfuse
           # uid libvirt-qemu, gid virl2
@@ -594,7 +593,7 @@ locals {
       "while ! firewall-cmd --zone=cluster-internal --list-interfaces ; do sleep 5; done",
       "firewall-cmd --permanent --zone=public --add-service=bgp",
       "firewall-cmd --permanent --zone=public --add-service=vxlan",
-      # Put libvirt1 interface in the DMZ and add the same services as the 
+      # Put virbr1 interface in the DMZ and add the same services as the
       # libvirt zone. This interface is used for BAH labs.  We don't want
       # students logging in with SSH.
       "firewall-cmd --permanent --zone=dmz --remove-service=ssh",
@@ -609,14 +608,6 @@ locals {
       "firewall-cmd --permanent --policy=cml_labs --add-egress-zone=public",
       "firewall-cmd --permanent --policy=cml_labs --add-masquerade",
       "firewall-cmd --permanent --policy=cml_labs  --set-target=ACCEPT",
-      # FIXME this breaks everything
-      ## So GCP can query a lab for DNS
-      #"firewall-cmd --permanent --new-policy=cml_labs_dns",
-      #"firewall-cmd --permanent --policy=cml_labs_dns --add-ingress-zone=public",
-      #"firewall-cmd --permanent --policy=cml_labs_dns --add-egress-zone=dmz",
-      #"firewall-cmd --permanent --policy=cml_labs_dns --add-service=dns",
-      #"firewall-cmd --permanent --policy=cml_labs_dns --set-target=ACCEPT",
-      #"firewall-cmd --reload",
     ]
   )
 

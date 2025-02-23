@@ -148,8 +148,7 @@ data "google_storage_bucket" "cml_bucket" {
 }
 
 data "google_storage_bucket" "cml_libvirt_images_bucket" {
-  # HACK cmm - Make bucket name configurable
-  name = "bah-libvirt-images-ue1"
+  name = var.options.cfg.gcp.libvirt_images_bucket
 }
 
 resource "google_tags_tag_key" "cml_tag_cml_key" {
@@ -196,12 +195,14 @@ resource "google_compute_network" "cml_network" {
   name                    = try(var.options.cfg.gcp.network_name, null) == null ? "cml-network-${var.options.rand_id}" : var.options.cfg.gcp.network_name
   auto_create_subnetworks = false
   mtu                     = local.cml_network_mtu
+  
   # TODO cmm - route manipulation needed?
   #delete_default_routes_on_create = true
   delete_default_routes_on_create = false
   enable_ula_internal_ipv6        = true
   internal_ipv6_range             = try(var.options.cfg.gcp.network_internal_v6_ula_cidr, null) == null ? null : var.options.cfg.gcp.network_internal_v6_ula_cidr
-  # HACK cmm - Keep network around so the peering for Filestore stays around
+
+  # HACK cmm - Keep network around if required
   lifecycle {
     prevent_destroy = false
     #prevent_destroy = true
