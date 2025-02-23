@@ -369,7 +369,7 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
     }
 
     dest_ip_ranges = [
-      google_compute_subnetwork.cml_subnet.external_ipv6_prefix
+      cidrsubnet(google_compute_subnetwork.cml_subnet.external_ipv6_prefix, 0, 0)
     ]
   }
 
