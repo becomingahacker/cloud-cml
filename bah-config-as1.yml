@@ -351,7 +351,7 @@ gcp:
           # needs Internet access
           originate_default: true
           allow_in:
-            # GOOGLE-CLOUD us-east1
+            # GOOGLE-CLOUD asia-south1
             - cidr: 2600:1900:40a0::/44
               ge: 96
             # OORTIO-IPV6-01/STO-ASIG asia-south1 
@@ -360,7 +360,7 @@ gcp:
             - cidr: 2602:80a:f005:100::/56
               ge: 64
           allow_out:
-            # GOOGLE-CLOUD us-east1
+            # GOOGLE-CLOUD asia-south1
             - cidr: 2600:1900:40a0::/44
               ge: 96
             # OORTIO-IPV6-01/STO-ASIG asia-south1
