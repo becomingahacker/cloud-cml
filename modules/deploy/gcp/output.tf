@@ -24,6 +24,11 @@ output "firewall_policy_id" {
   value = google_compute_region_network_firewall_policy.cml_firewall_policy.id
 }
 
+output "bgp_ipv6_peer" {
+  # HACK cmm - needs to be a list
+  value = cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1), var.options.cfg.gcp.cml_custom_external_connections.virbr1.gateway == "last" ? 65535 : 1)
+}
+
 output "sas_token" {
   value = "undefined"
 }
