@@ -116,6 +116,15 @@ locals {
           file-cache = {
             max-size-mb               = -1
             cache-file-for-range-read = false
+            enable-parallel-downloads = true
+          }
+          file-system = {
+            # libvirt-qemu
+            uid = 64055
+            # virl2
+            gid = 987
+            dir-mode = "775"
+            file-mode = "664"
           }
           metadata-cache = {
             stat-cache-max-size-mb = 32
@@ -189,8 +198,8 @@ locals {
           What=${var.options.cfg.gcp.libvirt_images_bucket}
           Where=/var/lib/libvirt/images
           Type=fuse.gcsfuse
-          # uid libvirt-qemu, gid virl2
-          Options=ro,uid=64055,gid=987,allow_other,config_file=/etc/gcsfuse/gcsfuse.yaml,_netdev
+          # Change to rw if you want to make changes on the controller.
+          Options=ro,allow_other,config_file=/etc/gcsfuse/gcsfuse.yaml,_netdev
   
           [Install]
           WantedBy=multi-user.target
