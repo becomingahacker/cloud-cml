@@ -110,8 +110,8 @@ function base_setup() {
         fi
 
         # if there's no images at this point, copy what's available in the defined
-        # cloud storage container
-        if [ $(find $VLLI -type f | wc -l) -eq 0 ]; then
+        # cloud storage container.  Ignore this if running on GCP.
+        if [ $(find $VLLI -type f | wc -l) -eq 0 -a $(systemd-detect-virt) != "google" ]; then
             copyfile refplat/ $VLLI/ "" --recursive
         fi
     fi
