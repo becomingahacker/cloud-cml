@@ -94,7 +94,7 @@ locals {
         owner       = "root:root"
         permissions = "0640"
         content     = <<-EOF
-          # Disable newtwork setup.  cloud-init will take care of that.
+          # Disable network setup.  cloud-init will take care of that.
           # Disable passthrough local IP routes (protocol 66).  These will be
           # overridden by the BGP routes advertised from labs.
           [NetworkInterfaces]

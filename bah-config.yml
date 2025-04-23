@@ -487,6 +487,7 @@ common:
     - "34.127.0.0/16"
     # Google Identity Aware Proxy
     - "130.211.0.0/22"
+    - "35.235.240.0/20"
     # RTP NAT pool
     - "173.38.117.64/26"
     # cmm

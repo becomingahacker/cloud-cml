@@ -392,7 +392,7 @@ resource "google_compute_region_network_firewall_policy_association" "cml_firewa
 
 resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_http" {
   action          = "allow"
-  description     = "Cisco Modeling Labs allow SSH from allowed subnets"
+  description     = "Cisco Modeling Labs allow HTTP(S) from allowed subnets"
   direction       = "INGRESS"
   disabled        = false
   enable_logging  = false
