@@ -325,10 +325,17 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   rule_name       = "cml-firewall-rule-ssh-${var.options.rand_id}"
 
   match {
-    src_address_groups = [google_network_security_address_group.cml_allowed_subnets_address_group.id]
+    src_address_groups = [
+      google_network_security_address_group.cml_allowed_subnets_address_group.id,
+    ]
+
+    src_ip_ranges = [
+      # Local hosts over IPv4
+      google_compute_subnetwork.cml_subnet.ip_cidr_range
+    ]
 
     dest_ip_ranges = [
-      google_compute_address.cml_controller_internal.address,
+      google_compute_subnetwork.cml_subnet.ip_cidr_range
     ]
 
     layer4_configs {
@@ -339,6 +346,10 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
 
   target_secure_tags {
     name = google_tags_tag_value.cml_tag_cml_controller.id
+  }
+
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_compute.id
   }
 }
 
@@ -359,8 +370,8 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
       "2001:420::/32",
       # GCP Health Check
       "2600:1901:8001::/48",
-      # cmm 
-      "2600:1700:840:7bc0::/60",
+      # Local hosts over IPv6
+      google_compute_subnetwork.cml_subnet.external_ipv6_prefix
     ]
 
     layer4_configs {
