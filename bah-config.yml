@@ -405,14 +405,14 @@ gcp:
               ge: 96
             # OORTIO-IPV6-01/STO-ASIG
             # https://whois.arin.net/rest/net/NET6-2602-80A-F004-1
-            - cidr: 2602:80a:f004:100::/56
+            - cidr: 2602:80a:f004::/56
               ge: 64
           allow_out:
             # GOOGLE-CLOUD us-east1
             - cidr: 2600:1900:4020::/44
               ge: 96
             # OORTIO-IPV6-01/STO-ASIG
-            - cidr: 2602:80a:f004:100::/56
+            - cidr: 2602:80a:f004::/56
               ge: 64
             # Default
             - cidr: ::/0
