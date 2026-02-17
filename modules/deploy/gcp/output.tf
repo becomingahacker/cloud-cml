@@ -5,7 +5,7 @@
 #
 
 output "public_ip" {
-  value = google_compute_address.cml_controller.address
+  value = data.google_compute_address.cml_controller.address
 }
 
 output "public_ip_v6" {

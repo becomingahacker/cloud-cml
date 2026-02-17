@@ -107,6 +107,9 @@ gcp:
   # packets between nodes.
   network_mtu: 8896
 
+  # IP collection.  Used to set the BYOIPv6 for the controller subnet.
+  ip_collection: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-net-2602-80a-f004-300-56
+
   # CML firewall policy name.  Leave empty to use an existing firewall policy
   # associated with the network indicated above.  VPC firewall rules are not
   # supported.  Only network firewall policies are supported.
@@ -123,7 +126,11 @@ gcp:
   # have dual-stack IPv6 enabled with EXTERNAL access type.  If creating
   # a new subnet, it will be an EXTERNAL access type.
   controller_subnet_name: cml-controller-subnet
-  controller_subnet_cidr: 100.64.1.0/24
+  controller_subnet_cidr: 10.64.1.0/24
+
+  # CML controller address name.  Used to pick up a BYOIPv4 address for the
+  # controller.
+  controller_address_name: address-172-98-19-192
 
   # CML compute subnet name and IPv4 CIDR block.  Only needed if
   # cluster.enable_cluster is set to 'true'.  Leave 'compute_subnet_cidr' empty
@@ -133,7 +140,7 @@ gcp:
   # Can be the same name as the controller subnet, just leave 'compute_subnet_cidr'
   # empty in this case.
   compute_subnet_name: cml-compute-subnet
-  compute_subnet_cidr: 100.64.2.0/24
+  compute_subnet_cidr: 10.64.2.0/24
 
   # Private Service Connect CIDR block.  Leave 'private_service_connnect_cidr'
   # empty to use an existing subnet.  In both cases, required.
@@ -141,7 +148,7 @@ gcp:
   # machines that don't have Internet access, such as computes.  Not required
   # if cluster.enable_cluster is set to 'false'.
   private_service_connnect_subnet_name: cml-private-service-connect-subnet
-  private_service_connnect_cidr: 100.64.3.0/24
+  private_service_connnect_cidr: 10.64.3.0/24
 
   # Use a load balancer for external access.  If set to true, a load balancer
   # will be created and the DNS A/AAAA records will be updated with the load balancer's
@@ -215,7 +222,7 @@ gcp:
       # to the controller from its attached subnet. DHCP(v6) range is hardcoded 
       # to start at the middle, and assumes /24 (or /112).  This is to make 
       # room for static IPs at the beginning of the range.
-      cidr: 100.64.5.0/24
+      cidr: 10.64.5.0/24
       # "first" or "last" for the gateway address.
       gateway: last
 
@@ -318,6 +325,9 @@ gcp:
               le: 32
             - cidr: 162.216.148.0/22
               le: 32
+            # STO-ASIG-IPV4-01
+            - cidr: 172.98.19.192/27
+              le: 32
             # Labs
             - cidr: 10.0.0.0/9
               le: 32
@@ -391,6 +401,10 @@ gcp:
               le: 32
             - cidr: 162.216.148.0/22
               le: 32
+            # STO-ASIG-IPV4-01
+            - cidr: 172.98.19.192/27
+              le: 32
+            # Labs
             - cidr: 10.0.0.0/9
               le: 32
             # Default
@@ -405,14 +419,14 @@ gcp:
               ge: 96
             # OORTIO-IPV6-01/STO-ASIG
             # https://whois.arin.net/rest/net/NET6-2602-80A-F004-1
-            - cidr: 2602:80a:f004::/56
+            - cidr: 2602:80a:f004:200::/56
               ge: 64
           allow_out:
             # GOOGLE-CLOUD us-east1
             - cidr: 2600:1900:4020::/44
               ge: 96
             # OORTIO-IPV6-01/STO-ASIG
-            - cidr: 2602:80a:f004::/56
+            - cidr: 2602:80a:f004:200::/56
               ge: 64
             # Default
             - cidr: ::/0
@@ -476,7 +490,7 @@ common:
   key_name: ssh-key-name
   allowed_ipv4_subnets:
     # GCE cml-subnet
-    - "100.64.1.0/24"
+    - "10.64.1.0/24"
     # TODO cmm - these should be integrated into the terraform code if the load balancer is enabled
     # GCE Health Chekers
     - "35.191.0.0/16"

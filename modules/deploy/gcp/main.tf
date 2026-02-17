@@ -195,7 +195,7 @@ resource "google_compute_network" "cml_network" {
   name                    = try(var.options.cfg.gcp.network_name, null) == null ? "cml-network-${var.options.rand_id}" : var.options.cfg.gcp.network_name
   auto_create_subnetworks = false
   mtu                     = local.cml_network_mtu
-  
+
   # TODO cmm - route manipulation needed?
   #delete_default_routes_on_create = true
   delete_default_routes_on_create = false
@@ -241,6 +241,7 @@ resource "google_compute_subnetwork" "cml_subnet" {
   stack_type               = "IPV4_IPV6"
   ipv6_access_type         = "EXTERNAL"
   private_ip_google_access = true
+  ip_collection            = var.options.cfg.gcp.ip_collection
 
   #log_config {
   #  aggregation_interval = "INTERVAL_5_SEC"
@@ -571,8 +572,12 @@ resource "google_compute_address" "cml_controller_internal" {
   subnetwork   = google_compute_subnetwork.cml_subnet.id
 }
 
-resource "google_compute_address" "cml_controller" {
-  name = "cml-controller-${var.options.rand_id}"
+#resource "google_compute_address" "cml_controller" {
+#  name = "cml-controller-${var.options.rand_id}"
+#}
+
+data "google_compute_address" "cml_controller" {
+  name = var.options.cfg.gcp.controller_address_name
 }
 
 resource "google_compute_address" "cml_controller_v6" {
@@ -629,7 +634,7 @@ resource "google_compute_instance" "cml_control_instance" {
     subnetwork = google_compute_subnetwork.cml_subnet.id
     network_ip = google_compute_address.cml_controller_internal.address
     access_config {
-      nat_ip = google_compute_address.cml_controller.address
+      nat_ip = data.google_compute_address.cml_controller.address
     }
     ipv6_access_config {
       network_tier                = "PREMIUM"
@@ -955,7 +960,7 @@ resource "google_dns_record_set" "cml_controller_dns" {
   managed_zone = data.google_dns_managed_zone.cml_zone.name
 
   rrdatas = [
-    google_compute_address.cml_controller.address
+    data.google_compute_address.cml_controller.address
   ]
 }
 

@@ -122,8 +122,8 @@ locals {
             # libvirt-qemu
             uid = 64055
             # virl2
-            gid = 987
-            dir-mode = "775"
+            gid       = 987
+            dir-mode  = "775"
             file-mode = "664"
           }
           metadata-cache = {
@@ -616,7 +616,8 @@ locals {
       "firewall-cmd --permanent --new-policy=cml_labs",
       "firewall-cmd --permanent --policy=cml_labs --add-ingress-zone=dmz",
       "firewall-cmd --permanent --policy=cml_labs --add-egress-zone=public",
-      "firewall-cmd --permanent --policy=cml_labs --add-masquerade",
+      # TODO cmm - Remove masquerade.  Leave available for future use.
+      #"firewall-cmd --permanent --policy=cml_labs --add-masquerade",
       "firewall-cmd --permanent --policy=cml_labs  --set-target=ACCEPT",
       "firewall-cmd --reload",
     ]
