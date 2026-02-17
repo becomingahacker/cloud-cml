@@ -1114,7 +1114,7 @@ resource "google_compute_backend_service" "cml_backend_controller" {
     enable = false
   }
 
-  ip_address_selection_policy = "IPV6_ONLY"
+  ip_address_selection_policy = "IPV4_ONLY"
   protocol                    = "HTTPS"
   port_name                   = "https"
   security_policy             = google_compute_security_policy.cml_security_policy.id
