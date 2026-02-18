@@ -436,7 +436,7 @@ locals {
           {
             AdvSendAdvert on;
             AdvManagedFlag on;
-            prefix ${cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1)}
+            prefix ${cidrsubnet(local.virbr1_cidr_v6, 8, 0)}
             {
               AdvOnLink on;
               AdvAutonomous on;
