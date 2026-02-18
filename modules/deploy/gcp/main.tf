@@ -1207,7 +1207,8 @@ locals {
 
   # IPv4 CIDR parsing for protocol forwarding
   # For a /27 network, we have 32 addresses total, excluding network (index 0)
-  # and broadcast (index 31), leaving 30 usable addresses (indices 1-30)
+  # and broadcast (index 31), leaving 30 usable addresses (indices 1-30).
+  # By default, the last usable address is used as the gateway (CML Controller).
   virbr1_cidr         = try(local.virbr1_cfg.cidr, null)
   virbr1_prefix_len   = local.virbr1_cidr != null ? tonumber(split("/", local.virbr1_cidr)[1]) : 0
   virbr1_total_hosts  = local.virbr1_cidr != null ? pow(2, 32 - local.virbr1_prefix_len) : 0
