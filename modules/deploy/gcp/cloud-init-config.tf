@@ -1,6 +1,6 @@
 #
 # This file is part of Cisco Modeling Labs
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 
@@ -238,12 +238,12 @@ locals {
           %{if config.mac_address != null}<mac address="${config.mac_address}"/>%{endif}
           <ip address='%{if config.gateway == "last"}${cidrhost(config.cidr, -2)}%{else}${cidrhost(config.cidr, 1)}%{endif}' netmask='${cidrnetmask(config.cidr)}'>
             <dhcp>
-              <range start='${cidrhost(config.cidr, 128)}' end='%{if config.gateway == "last"}${cidrhost(config.cidr, -3)}%{else}${cidrhost(config.cidr, -2)}%{endif}'/>
+              <range start='${cidrhost(config.cidr, -3)}' end='%{if config.gateway == "last"}${cidrhost(config.cidr, -2)}%{else}${cidrhost(config.cidr, -3)}%{endif}'/>
             </dhcp>
           </ip>
-          <ip family='ipv6' address='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1), config.gateway == "last" ? 65535 : 1)}' prefix='112'>
+          <ip family='ipv6' address='${cidrhost(config.cidr_v6, config.gateway_v6 == "last" ? 65535 : 1)}' prefix='64'>
             <dhcp>
-              <range start='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1), 32768)}' end='${cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1), 65534)}'/>
+              <range start='${cidrhost(cidrsubnet(config.cidr_v6, 16, 0), 32768)}' end='${cidrhost(cidrsubnet(config.cidr_v6, 16, 0), 65534)}'/>
             </dhcp>
           </ip>
         </network>
@@ -305,6 +305,10 @@ locals {
         owner       = "root:root"
         permissions = "0640"
         content     = <<-EOF
+          !
+          ip route ${local.virbr1_cidr} Null0 200
+          ! 
+          ipv6 route ${local.virbr1_cidr_v6} Null0 200
           ! 
           %{for network_name, config in var.options.cfg.gcp.cml_custom_external_connections}
           %{if try(config.bgp, null) != null}
@@ -369,7 +373,7 @@ locals {
            neighbor CML_${network_name}_V6 peer-group
            neighbor CML_${network_name}_V6 remote-as ${config.bgp.remote_as}
            neighbor CML_${network_name}_V6 ttl-security hops 1 
-           bgp listen range ${cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1)} peer-group CML_${network_name}_V6
+           bgp listen range ${cidrsubnet(local.virbr1_cidr_v6, 8, 0)} peer-group CML_${network_name}_V6
            %{endif}
            %{endfor}
            !

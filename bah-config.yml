@@ -1,5 +1,5 @@
 # This file is part of Cisco Modeling Labs
-# Copyright (c) 2019-2025, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 
@@ -108,7 +108,7 @@ gcp:
   network_mtu: 8896
 
   # IP collection.  Used to set the BYOIPv6 for the controller subnet.
-  ip_collection: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-net-2602-80a-f004-300-56
+  subnet_ip_collection: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-net-2602-80a-f004-300-56
 
   # CML firewall policy name.  Leave empty to use an existing firewall policy
   # associated with the network indicated above.  VPC firewall rules are not
@@ -199,8 +199,8 @@ gcp:
   # https://cloud.google.com/iap/docs/concepts-overview
   #
   # FIXME cmm - IAP is not currently supported, and is hardcoded to 'false'.
-  #
-  enable_iap: true
+  # You can enable IAP in the GCP console.
+  enable_iap: false
 
   # BGP configuration.  Used for BGP EVPN and BGP peering with custom external 
   # networks.
@@ -225,10 +225,6 @@ gcp:
       # support Option 26 to set MTU.
       mtu: 1500
 
-      # TODO cmm - Inoperable, intended for DHCP[v6].
-      dns_server: "8.8.8.8"
-      dns_server_v6: 2001:4860:4860::8888
-
       # Bridge forward mode.  Can be set to 'nat', 'route', or 'open'
       # https://libvirt.org/formatnetwork.html#connectivity
       forward_mode: open
@@ -237,20 +233,25 @@ gcp:
       # for DHCPv4 or static addressing.  IPv6 uses the /96 prefix assigned
       # to the controller from its attached subnet. DHCP(v6) range is hardcoded 
       # to start at the middle, and assumes /24 (or /112).  This is to make 
-      # room for static IPs at the beginning of the range.
-      cidr: 10.64.5.0/24
+      # room for static IPs at the beginning of the range.  If using BYOIPv4,
+      # you must have the addresses available for the subnet.
+      cidr: 172.98.19.192/27
       # "first" or "last" for the gateway address.
       gateway: last
 
-      # IPv6 address type.  'internal' uses a /64 from ULA, 'external' uses a
-      # /96 from controller address, or 'none'.  In both cases, 'internal' or
-      # 'external', routes will be created in the VPC network.  If 'external',
-      # DHCPv6 will be configured.  If 'none', IPv6 will not be configured.
-      # SLAAC is only supported with 'internal' access type.  NAT is not
-      # currently supported for IPv6.
-      # TODO cmm - IPv6 is currently hardcoded to 'external', regardless of
-      # setting.
-      ipv6_access_type: external
+      # IP collection for BYOIPv6 used with the network load balancer for
+      # protocol forwarding.
+      load_balancer_ip_collection_v6: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-nlb-2602-80a-f004-200-56
+      # IPv6 CIDR block. Used for protocol forwarding.  The first /64 is used
+      # for the CML controller.  The second available /64 is used for the first
+      # pod.  The number of /64s forwarded for pods is equal to the number of
+      # IPv4 addresses available for pods, plus the /64 for the CML controller.
+      cidr_v6: 2602:80a:f004:200::/56
+      # "first" or "last" for the IPv6 gateway address on virbr1.  Only the last
+      # 16 bits are used.  "last" corresponds to e.g. 2602:80a:f004:200::ffff
+      # 2602:80a:f004:200::8000 to 2602:80a:f004:200::fffe are reserved for
+      # DHCPv6.
+      gateway_v6: last
 
       # BGP configuration.  Leave empty (null) to disable BGP.  If enabled, the
       # 'remote_as' setting is used for the BGP peer AS number.
@@ -345,7 +346,7 @@ gcp:
             - cidr: 172.98.19.192/27
               le: 32
             # Labs
-            - cidr: 10.0.0.0/9
+            - cidr: 10.0.0.0/10
               le: 32
           allow_out:
             # GOOGLE-CLOUD us-east1
@@ -421,7 +422,7 @@ gcp:
             - cidr: 172.98.19.192/27
               le: 32
             # Labs
-            - cidr: 10.0.0.0/9
+            - cidr: 10.0.0.0/10
               le: 32
             # Default
             - cidr: 0.0.0.0/0

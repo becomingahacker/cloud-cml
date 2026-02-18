@@ -1,6 +1,6 @@
 #
 # This file is part of Cisco Modeling Labs
-# Copyright (c) 2019-2024, Cisco Systems, Inc.
+# Copyright (c) 2019-2026, Cisco Systems, Inc.
 # All rights reserved.
 #
 
@@ -241,7 +241,7 @@ resource "google_compute_subnetwork" "cml_subnet" {
   stack_type               = "IPV4_IPV6"
   ipv6_access_type         = "EXTERNAL"
   private_ip_google_access = true
-  ip_collection            = try(var.options.cfg.gcp.ip_collection, null)
+  ip_collection            = try(var.options.cfg.gcp.subnet_ip_collection, null)
 
   #log_config {
   #  aggregation_interval = "INTERVAL_5_SEC"
@@ -1198,4 +1198,63 @@ resource "google_compute_target_instance" "cml_controller_target_instance" {
   zone        = var.options.cfg.gcp.zone
   instance    = google_compute_instance.cml_control_instance.id
   nat_policy  = try(var.options.cfg.gcp.target_instance.nat_policy, "NO_NAT")
+}
+
+# Protocol forwarding configuration
+locals {
+  # virbr1 configuration for protocol forwarding
+  virbr1_cfg = try(var.options.cfg.gcp.cml_custom_external_connections.virbr1, null)
+
+  # IPv4 CIDR parsing for protocol forwarding
+  # For a /27 network, we have 32 addresses total, excluding network (index 0)
+  # and broadcast (index 31), leaving 30 usable addresses (indices 1-30)
+  virbr1_cidr         = try(local.virbr1_cfg.cidr, null)
+  virbr1_prefix_len   = local.virbr1_cidr != null ? tonumber(split("/", local.virbr1_cidr)[1]) : 0
+  virbr1_total_hosts  = local.virbr1_cidr != null ? pow(2, 32 - local.virbr1_prefix_len) : 0
+  virbr1_usable_hosts = local.virbr1_total_hosts > 2 ? local.virbr1_total_hosts - 2 : 0
+
+  # Generate list of usable host indices (1 to total-2, excluding network and broadcast)
+  virbr1_host_indices = local.virbr1_usable_hosts > 0 ? range(1, local.virbr1_total_hosts - 1) : []
+
+  # IPv6 configuration
+  virbr1_cidr_v6                        = try(local.virbr1_cfg.cidr_v6, null)
+  virbr1_load_balancer_ip_collection_v6 = try(local.virbr1_cfg.load_balancer_ip_collection_v6, null)
+  # Ultimate number of possible pods.  The first prefix will be used for the CML controller.  The first available
+  # prefix will be used for the first pod.
+  virbr1_prefix_count_v6 = local.virbr1_usable_hosts
+
+  # Enable protocol forwarding only if target instance is enabled and virbr1 has a CIDR
+  enable_protocol_forwarding_v4 = try(var.options.cfg.gcp.target_instance.enable, false) && local.virbr1_cidr != null
+  enable_protocol_forwarding_v6 = try(var.options.cfg.gcp.target_instance.enable, false) && local.virbr1_cidr_v6 != null && local.virbr1_load_balancer_ip_collection_v6 != null
+}
+
+# IPv4 forwarding rules for protocol forwarding
+# Forwards all protocols and ports for each usable IP to the target instance
+resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v4" {
+  for_each = local.enable_protocol_forwarding_v4 ? toset([for i in local.virbr1_host_indices : tostring(i)]) : toset([])
+
+  name                  = "cml-pf-v4-${each.key}-${var.options.rand_id}"
+  description           = "Protocol forwarding for ${cidrhost(local.virbr1_cidr, tonumber(each.key))}"
+  region                = var.options.cfg.gcp.region
+  ip_protocol           = "L3_DEFAULT"
+  all_ports             = true
+  load_balancing_scheme = "EXTERNAL"
+  ip_address            = cidrhost(local.virbr1_cidr, tonumber(each.key))
+  target                = google_compute_target_instance.cml_controller_target_instance[0].id
+}
+
+# IPv6 forwarding rule for protocol forwarding
+resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v6" {
+  count = local.enable_protocol_forwarding_v6 ? local.virbr1_prefix_count_v6 : 0
+
+  name                  = "cml-pf-v6-${count.index+1}-${var.options.rand_id}"
+  description           = "Protocol forwarding for IPv6 ${cidrsubnet(local.virbr1_cidr_v6, 8, count.index)}"
+  region                = var.options.cfg.gcp.region
+  ip_protocol           = "L3_DEFAULT"
+  all_ports             = true
+  load_balancing_scheme = "EXTERNAL"
+  ip_version            = "IPV6"
+  ip_address            = cidrsubnet(local.virbr1_cidr_v6, 8, count.index)
+  ip_collection         = local.virbr1_load_balancer_ip_collection_v6
+  target                = google_compute_target_instance.cml_controller_target_instance[0].id
 }
