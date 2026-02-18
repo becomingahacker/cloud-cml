@@ -32,3 +32,8 @@ output "bgp_ipv6_peer" {
 output "sas_token" {
   value = "undefined"
 }
+
+output "target_instance_self_link" {
+  description = "Self link of the target instance for protocol forwarding"
+  value       = try(google_compute_target_instance.cml_controller_target_instance[0].self_link, null)
+}

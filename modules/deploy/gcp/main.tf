@@ -241,7 +241,7 @@ resource "google_compute_subnetwork" "cml_subnet" {
   stack_type               = "IPV4_IPV6"
   ipv6_access_type         = "EXTERNAL"
   private_ip_google_access = true
-  ip_collection            = var.options.cfg.gcp.ip_collection
+  ip_collection            = try(var.options.cfg.gcp.ip_collection, null)
 
   #log_config {
   #  aggregation_interval = "INTERVAL_5_SEC"
@@ -1185,4 +1185,17 @@ resource "google_compute_global_forwarding_rule" "cml_https_forwarding_rule_v6" 
   port_range            = "443"
   target                = google_compute_target_https_proxy.cml_target_https_proxy.id
   ip_address            = google_compute_global_address.cml_load_balancer_v6.address
+}
+
+# Target instance for protocol forwarding.  Allows forwarding rules to direct
+# traffic directly to the CML controller without going through a load balancer.
+# https://cloud.google.com/compute/docs/protocol-forwarding
+resource "google_compute_target_instance" "cml_controller_target_instance" {
+  count = try(var.options.cfg.gcp.target_instance.enable, false) ? 1 : 0
+
+  name        = try(var.options.cfg.gcp.target_instance.name, null) != null ? var.options.cfg.gcp.target_instance.name : "cml-target-instance-${var.options.rand_id}"
+  description = "Target instance for CML controller protocol forwarding"
+  zone        = var.options.cfg.gcp.zone
+  instance    = google_compute_instance.cml_control_instance.id
+  nat_policy  = try(var.options.cfg.gcp.target_instance.nat_policy, "NO_NAT")
 }

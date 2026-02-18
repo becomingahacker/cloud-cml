@@ -156,6 +156,22 @@ gcp:
   # will all that will be available to you.
   enable_load_balancer: true
 
+  # Target instance configuration for protocol forwarding.  A target instance
+  # allows forwarding rules to direct traffic directly to the CML controller
+  # without going through a load balancer.  Useful for non-HTTP protocols like
+  # SSH (port 1122), or any TCP/UDP traffic that needs direct VM access.
+  # https://cloud.google.com/compute/docs/protocol-forwarding
+  target_instance:
+    # Enable creation of the target instance.  If set to true, a target instance
+    # will be created pointing to the CML controller.
+    enable: true
+    # Name for the target instance.  Leave empty to auto-generate using
+    # 'cml-target-instance-' and a random suffix.
+    name:
+    # NAT policy for the target instance.  Can be 'NO_NAT' or leave empty for
+    # default behavior.  NO_NAT means the original client IP is preserved.
+    nat_policy: NO_NAT
+
   # DNS zone name and load balancer FQDNs.  Only needed if
   # 'enable_load_balancer' is set to 'true' and 'load_balancer_fqdns' has
   # fully-qualified domain names provided, it automatically creates HTTPS
