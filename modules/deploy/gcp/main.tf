@@ -5,7 +5,6 @@
 #
 
 locals {
-  # TODO cmm - what else to enable?
   google_services_enabled = [
     "compute.googleapis.com",
     "dns.googleapis.com",
