@@ -7,7 +7,6 @@
 
 # at this time, "aws", "azure", and "gcp" are defined targets
 # make sure that you ran the prepare.sh / prepare.bat script!
-# TODO cmm - change to gce?
 target: gcp
 
 aws:
