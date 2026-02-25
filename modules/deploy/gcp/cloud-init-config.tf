@@ -306,9 +306,9 @@ locals {
         permissions = "0640"
         content     = <<-EOF
           !
-          ip route ${local.virbr1_cidr} Null0 200
+          !ip route ${local.virbr1_cidr} Null0 200
           ! 
-          ipv6 route ${local.virbr1_cidr_v6} Null0 200
+          !ipv6 route ${local.virbr1_cidr_v6} Null0 200
           ! 
           %{for network_name, config in var.options.cfg.gcp.cml_custom_external_connections}
           %{if try(config.bgp, null) != null}
