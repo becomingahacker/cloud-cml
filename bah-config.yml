@@ -587,6 +587,7 @@ secret:
       # Used with Vault only:
       #field: secret
 
+    # https://software.cisco.com/clc/licensing/assigned
     smartlicense_token:
       # Only used with dummy secret manager
       #raw_secret: your-smart-licensing-token
