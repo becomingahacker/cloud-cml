@@ -191,15 +191,20 @@ gcp:
   # Setting to 'true' is strongly recommended if using a load balancer, since it
   # DOES NOT currently support common.allowed_ipv4_subnets.  Note that if IAP is
   # enabled, the Breakout tool or API access via a JSON web token is not
-  # currently supported.  Enabling IAP provides project users and groups with
-  # owner privileges access to the IAP and CML by default, but others may
-  # be added manually from the IAM console.
+  # currently supported.
   # 
   # https://cloud.google.com/iap/docs/concepts-overview
   #
-  # FIXME cmm - IAP is not currently supported, and is hardcoded to 'false'.
-  # You can enable IAP in the GCP console.
-  enable_iap: false
+  # Terraform enables IAP on the HTTPS backend, grants roles/iap.httpsResourceAccessor
+  # to iap_https_access_groups, restricts those bindings to gcp.load_balancer_fqdns
+  # via IAM conditions on request.host, and sets IAP allowed-domains to the same FQDNs.
+  enable_iap: true
+
+  # Google Groups allowed to sign in through IAP to the HTTPS load balancer (member
+  # format as in IAM: group:GROUP_EMAIL). Only used when enable_iap is true.
+  iap_https_access_groups:
+    - group:gcp-hackers@cisco.com
+    - group:gcp-script-kiddies@cisco.com
 
   # BGP configuration.  Used for BGP EVPN and BGP peering with custom external 
   # networks.

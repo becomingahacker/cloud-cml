@@ -105,6 +105,23 @@ locals {
   # data.google_compute_network won't return the existing MTU, so we set it ourselves
   # https://registry.terraform.io/providers/hashicorp/google/latest/docs/data-sources/compute_network
   cml_network_mtu = try(var.options.cfg.gcp.network_mtu, null) == null ? 1460 : var.options.cfg.gcp.network_mtu
+
+  cml_iap_enabled = try(var.options.cfg.gcp.enable_iap, false)
+
+  cml_iap_https_access_groups = toset(try(var.options.cfg.gcp.iap_https_access_groups, []))
+
+  cml_load_balancer_fqdns = try(var.options.cfg.gcp.load_balancer_fqdns, [])
+
+  # https://cloud.google.com/iap/docs/cloud-iap-context-aware-access-howto
+  cml_iap_request_host_condition = (
+    length(local.cml_load_balancer_fqdns) == 0 ? "true" : join(" || ", [
+      for h in local.cml_load_balancer_fqdns : format("request.host == \"%s\"", lower(h))
+    ])
+  )
+}
+
+data "google_project" "cml_project" {
+  project_id = var.options.cfg.gcp.project
 }
 
 data "google_compute_zones" "cml_available_zones" {
@@ -1119,6 +1136,49 @@ resource "google_compute_backend_service" "cml_backend_controller" {
   port_name                   = "https"
   security_policy             = google_compute_security_policy.cml_security_policy.id
   session_affinity            = "NONE"
+
+  # https://cloud.google.com/iap/docs/load-balancing-howto
+  iap {
+    enabled = try(var.options.cfg.gcp.enable_iap, false)
+  }
+}
+
+# https://cloud.google.com/iap/docs/managing-access
+resource "google_iap_web_backend_service_iam_member" "cml_iap_https_access" {
+  for_each = local.cml_iap_enabled ? local.cml_iap_https_access_groups : toset([])
+
+  project             = var.options.cfg.gcp.project
+  web_backend_service = google_compute_backend_service.cml_backend_controller.name
+  role                = "roles/iap.httpsResourceAccessor"
+  member              = each.value
+
+  dynamic "condition" {
+    for_each = length(local.cml_load_balancer_fqdns) > 0 ? [1] : []
+    content {
+      title       = "CML LB virtual hosts (gcp.load_balancer_fqdns)"
+      description = "Allow IAP only when the HTTP Host header matches a configured load_balancer_fqdns entry."
+      expression  = local.cml_iap_request_host_condition
+    }
+  }
+
+  depends_on = [google_compute_backend_service.cml_backend_controller]
+}
+
+# Trusted / allowed domains for this IAP-protected backend (see API AllowedDomainsSettings).
+# https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/iap_settings
+resource "google_iap_settings" "cml_lb" {
+  count = local.cml_iap_enabled && length(local.cml_load_balancer_fqdns) > 0 ? 1 : 0
+
+  name = "projects/${data.google_project.cml_project.number}/iap_web/compute/services/${google_compute_backend_service.cml_backend_controller.name}"
+
+  access_settings {
+    allowed_domains_settings {
+      enable  = true
+      domains = [for h in local.cml_load_balancer_fqdns : lower(h)]
+    }
+  }
+
+  depends_on = [google_compute_backend_service.cml_backend_controller]
 }
 
 resource "google_compute_url_map" "cml_lb_http_redirect" {
