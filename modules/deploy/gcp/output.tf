@@ -37,3 +37,17 @@ output "target_instance_self_link" {
   description = "Self link of the target instance for protocol forwarding"
   value       = try(google_compute_target_instance.cml_controller_target_instance[0].self_link, null)
 }
+
+# https://cloud.google.com/iap/docs/signed-headers-howto (Compute Engine / global backend service)
+output "iap_audience" {
+  description = "Signed Header JWT audience (aud) for validating IAP requests to this HTTPS backend. Null when enable_iap is false."
+  value       = local.cml_iap_enabled ? "/projects/${data.google_project.cml_project.number}/global/backendServices/${google_compute_backend_service.cml_backend_controller.name}" : null
+}
+
+# Populated by Google when IAP is enabled on the backend service (Compute API iap.oauth2ClientId).
+# Same value as: gcloud compute backend-services describe NAME --global --format='value(iap.oauth2ClientId)'
+# https://cloud.google.com/iap/docs/authentication-howto
+output "iap_oauth2_client_id" {
+  description = "IAP OAuth 2.0 client ID for this HTTPS backend; use as audience when obtaining ID tokens for programmatic access. Null when enable_iap is false or not yet assigned."
+  value       = local.cml_iap_enabled ? try(google_compute_backend_service.cml_backend_controller.iap[0].oauth2_client_id, null) : null
+}

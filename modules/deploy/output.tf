@@ -47,3 +47,21 @@ output "module" {
     tomap({})
   )
 }
+
+output "iap_audience" {
+  description = "IAP Signed Header JWT audience when target is GCP and enable_iap is true; otherwise null."
+  value = (
+    var.cfg.target == "gcp" ?
+    module.gcp[0].iap_audience :
+    null
+  )
+}
+
+output "iap_oauth2_client_id" {
+  description = "IAP OAuth2 client ID when target is GCP and enable_iap is true; otherwise null."
+  value = (
+    var.cfg.target == "gcp" ?
+    module.gcp[0].iap_oauth2_client_id :
+    null
+  )
+}

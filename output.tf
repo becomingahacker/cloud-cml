@@ -10,6 +10,8 @@ output "cml2info" {
     "address_v6" : module.deploy.public_ip_v6
     "del" : nonsensitive("ssh -p1122 ${local.cfg.secrets.sys.username}@${module.deploy.public_ip} /provision/del.sh")
     "url" : "https://${module.deploy.public_fqdn}"
+    "iap_audience" : module.deploy.iap_audience
+    "iap_oauth2_client_id" : module.deploy.iap_oauth2_client_id
     #"version" : module.ready.state.version
   }
 }
