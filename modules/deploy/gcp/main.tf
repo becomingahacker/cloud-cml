@@ -1238,8 +1238,8 @@ locals {
 # IPv4 forwarding rules for protocol forwarding
 # Forwards all protocols and ports for each usable IP to the target instance
 resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v4" {
-  #for_each = local.enable_protocol_forwarding_v4 ? toset([for i in local.virbr1_host_indices : tostring(i)]) : toset([])
-  for_each = toset([])
+  for_each = local.enable_protocol_forwarding_v4 ? toset([for i in local.virbr1_host_indices : tostring(i)]) : toset([])
+  #for_each = toset([])
 
   name                  = "cml-pf-v4-${each.key}-${var.options.rand_id}"
   description           = "Protocol forwarding for ${cidrhost(local.virbr1_cidr, tonumber(each.key))}"
@@ -1254,8 +1254,8 @@ resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v4" {
 
 # IPv6 forwarding rule for protocol forwarding
 resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v6" {
-  #count = local.enable_protocol_forwarding_v6 ? local.virbr1_prefix_count_v6 : 0
-  count = 0
+  count = local.enable_protocol_forwarding_v6 ? local.virbr1_prefix_count_v6 : 0
+  #count = 0
 
   name                  = "cml-pf-v6-${count.index + 1}-${var.options.rand_id}"
   description           = "Protocol forwarding for IPv6 ${cidrsubnet(local.virbr1_cidr_v6, 8, count.index)}"
