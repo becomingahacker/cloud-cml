@@ -328,7 +328,8 @@ gcp:
   # and existing node state MUST be wiped and data WILL BE LOST.  An advantage of
   # spot instances is that they are far less expensive than on-demand instances.
   #
-  compute_machine_provisioning_model: spot
+  compute_machine_provisioning_model: on-demand
+  #compute_machine_provisioning_model: spot
 
   # Compute image family.  Provides access to the most recent custom image for
   # the compute machine.  Leave empty to use 'ubuntu-2404-lts-amd64'.  Used for both

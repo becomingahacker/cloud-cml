@@ -257,6 +257,115 @@ locals {
           d /run/sshd 0755 root root
         EOF
       },
+      {
+        path        = "/usr/local/bin/virl2-remount-images.sh"
+        owner       = "root:root"
+        permissions = "0755"
+        content     = <<-EOF
+          #!/usr/bin/env bash
+          #
+          # This file is a part of VIRL 2
+          # Copyright (c) 2019-2026, Cisco Systems, Inc.
+          # All rights reserved.
+          #
+
+          # Configuration variables and log prep function
+          source /etc/default/virl2
+          set -Eeuo pipefail
+
+          state_path="$BASE_DIR/base_images.state"
+          image_root="$LIBVIRT_IMAGES/virl-base-images"
+          ret=0
+
+          function update_state() {
+              if [[ $ret -eq 0 && -d "$image_root" ]]; then
+                  find "$image_root" -mindepth 1 -maxdepth 1 -type d | wc -l >"$state_path.new"
+                  mv "$state_path.new" "$state_path"
+              else
+                  rm -f "$state_path"
+              fi
+          }
+
+          if [[ "$RUN_CONTROLLER" = "1" ]]; then
+              update_state
+              exit 0
+          fi
+
+          do_mount=true
+          is_mounted=false
+          mount_type=""
+          if grep -q "$LIBVIRT_IMAGES.*fuse\.gcsfuse" /proc/mounts; then
+              is_mounted=true
+              mount_type="gcsfuse"
+          elif grep "$LIBVIRT_IMAGES.*nfs4" /proc/mounts | grep -v -e 'vers=3' >/dev/null; then
+              is_mounted=true
+              mount_type="nfs"
+          fi
+
+          # if mount exists, verify the mount point actually works; final stat gets EPERM if not
+          # the mount point may also be in stale IO state, the subprocess must be killed then
+          (
+              $is_mounted &&
+                  if [[ "$mount_type" = "nfs" ]]; then
+                      stat -f "$LIBVIRT_IMAGES" | grep "Type: nfs" >/dev/null
+                  else
+                      stat -f "$LIBVIRT_IMAGES" | grep "Type: fuseblk" >/dev/null
+                  fi &&
+                  stat "$LIBVIRT_IMAGES" >/dev/null
+          ) &
+          pid=$!
+          sleep 0.2
+
+          declare -i counter=10
+          while [[ -d /proc/$pid ]]; do
+              if [[ $counter -eq 0 ]]; then
+                  kill -9 $pid
+                  echo "$mount_type share at $LIBVIRT_IMAGES was stuck. Please check cluster network connectivity."
+                  break
+              fi
+              counter+=-1
+              sleep 0.5
+          done
+
+          wait $pid || ret=$?
+          update_state
+
+          if [[ $ret -eq 0 ]]; then
+              echo "$mount_type share at $LIBVIRT_IMAGES is mounted."
+              do_mount=false
+          elif $is_mounted; then
+              if [[ "$mount_type" = "nfs" ]]; then
+                  umount -fl "$LIBVIRT_IMAGES" || ret=$?
+              else
+                  systemctl stop var-lib-libvirt-images.mount || ret=$?
+              fi
+              if [[ $ret -eq 0 ]]; then
+                  echo "Umounting stuck $mount_type share succeeded, will try to remount."
+              else
+                  echo "Umounting stuck $mount_type share failed."
+                  do_mount=false
+              fi
+          fi
+
+          if $do_mount; then
+              echo "Mounting $${mount_type:-remote} share..."
+              ret=0
+              if [[ "$mount_type" = "nfs" ]]; then
+                  mount "$LIBVIRT_IMAGES" || ret=$?
+              else
+                  systemctl start var-lib-libvirt-images.mount || ret=$?
+              fi
+              if [[ $ret -eq 0 ]]; then
+                  echo "Mounting $${mount_type:-remote} share succeeded."
+                  update_state
+              else
+                  echo "Mounting $${mount_type:-remote} share failed."
+              fi
+          fi
+          exit $ret
+
+        EOF
+      },
     ],
     [for script in var.options.cfg.app.customize : {
       path        = "/provision/${script}"
@@ -560,7 +669,6 @@ locals {
           !
         EOF
       },
-
     ]
   )
 
@@ -677,10 +785,10 @@ locals {
       #"exit 0",
       # Install cml, do not reboot
       "/provision/cml.sh || echo 'CML provisioning failed.' && false",
-      # HACK cmm - use Google Cloud Storage instead
-      "systemctl stop virl2.target",
       # Remove any CML-generated netplan configs
       "rm -rf /etc/netplan/*-cml2-* || true",
+      # HACK cmm - use Google Cloud Storage instead
+      "systemctl stop virl2.target",
       # Stop process that tries to remount NFS from controller.  Use GCS instead.
       "systemctl disable --now virl2-remount-images.service",
       # Unmount NFS from controller
@@ -691,7 +799,6 @@ locals {
       # Mount GCS FUSE libvirt images
       "systemctl enable --now var-lib-libvirt-images.mount",
       # HACK cmm - Allow gcsfuse to work for /var/lib/libvirt/images. Keep the LLD happy.
-      "sed -i 's/nfs4/fuse.gcsfuse/' /var/local/virl2/.local/lib/python3.12/site-packages/simple_drivers/low_level_driver/host_statistics.py",
       "systemctl enable --now virl2.target",
       # Wait for cluster interface to come up
       "while ! firewall-cmd --zone=cluster-internal --list-interfaces ; do sleep 5; done",

@@ -927,6 +927,7 @@ resource "google_compute_region_instance_group_manager" "cml_compute_instance_gr
     minimal_action               = "REPLACE"
     replacement_method           = "RECREATE"
     max_unavailable_fixed        = length(data.google_compute_zones.cml_compute_zones_available.names)
+    max_surge_fixed              = 0
   }
 
   version {
@@ -1248,7 +1249,7 @@ resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v4" {
   load_balancing_scheme = "EXTERNAL"
   ip_address            = cidrhost(local.virbr1_cidr, tonumber(each.key))
   #target                = data.google_compute_instance.cml_controller_target_instance.id
-  target                = google_compute_target_instance.cml_controller_target_instance[0].id
+  target = google_compute_target_instance.cml_controller_target_instance[0].id
 }
 
 # IPv6 forwarding rule for protocol forwarding
@@ -1256,7 +1257,7 @@ resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v6" {
   #count = local.enable_protocol_forwarding_v6 ? local.virbr1_prefix_count_v6 : 0
   count = 0
 
-  name                  = "cml-pf-v6-${count.index+1}-${var.options.rand_id}"
+  name                  = "cml-pf-v6-${count.index + 1}-${var.options.rand_id}"
   description           = "Protocol forwarding for IPv6 ${cidrsubnet(local.virbr1_cidr_v6, 8, count.index)}"
   region                = var.options.cfg.gcp.region
   ip_protocol           = "L3_DEFAULT"
@@ -1266,5 +1267,5 @@ resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v6" {
   ip_address            = cidrsubnet(local.virbr1_cidr_v6, 8, count.index)
   ip_collection         = local.virbr1_load_balancer_ip_collection_v6
   #target                = data.google_compute_instance.cml_controller_target_instance.id
-  target                = google_compute_target_instance.cml_controller_target_instance[0].id
+  target = google_compute_target_instance.cml_controller_target_instance[0].id
 }
