@@ -652,7 +652,7 @@ resource "google_compute_instance" "cml_control_instance" {
     block-project-ssh-keys = try(var.options.cfg.gcp.ssh_keys != null) ? true : false
     ssh-keys               = try(var.options.cfg.gcp.ssh_keys != null) ? var.options.cfg.gcp.ssh_key : null
     user-data              = sensitive(data.cloudinit_config.cml_controller.rendered)
-    serial-port-enable     = true
+    serial-port-enable     = "TRUE"
     enable-osconfig        = "TRUE"
   }
 
@@ -796,7 +796,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
     block-project-ssh-keys = try(var.options.cfg.gcp.ssh_keys != null) ? true : false
     ssh-keys               = try(var.options.cfg.gcp.ssh_keys != null) ? var.options.cfg.gcp.ssh_keys : null
     user-data              = sensitive(data.cloudinit_config.cml_compute.rendered)
-    serial-port-enable     = true
+    serial-port-enable     = "TRUE"
     enable-osconfig        = "TRUE"
   }
 
@@ -884,7 +884,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
     block-project-ssh-keys = try(var.options.cfg.gcp.ssh_keys != null) ? true : false
     ssh-keys               = try(var.options.cfg.gcp.ssh_keys != null) ? var.options.cfg.gcp.ssh_key : null
     user-data              = sensitive(data.cloudinit_config.cml_compute.rendered)
-    serial-port-enable     = true
+    serial-port-enable     = "TRUE"
   }
 
   advanced_machine_features {
@@ -1228,10 +1228,17 @@ locals {
   enable_protocol_forwarding_v6 = try(var.options.cfg.gcp.target_instance.enable, false) && local.virbr1_cidr_v6 != null && local.virbr1_load_balancer_ip_collection_v6 != null
 }
 
+## Fracture the dependency on the target instance
+#data "google_compute_instance" "cml_controller_target_instance" {
+#  name = "cml-controller"
+#  zone = var.options.cfg.gcp.zone
+#}
+
 # IPv4 forwarding rules for protocol forwarding
 # Forwards all protocols and ports for each usable IP to the target instance
 resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v4" {
-  for_each = local.enable_protocol_forwarding_v4 ? toset([for i in local.virbr1_host_indices : tostring(i)]) : toset([])
+  #for_each = local.enable_protocol_forwarding_v4 ? toset([for i in local.virbr1_host_indices : tostring(i)]) : toset([])
+  for_each = toset([])
 
   name                  = "cml-pf-v4-${each.key}-${var.options.rand_id}"
   description           = "Protocol forwarding for ${cidrhost(local.virbr1_cidr, tonumber(each.key))}"
@@ -1240,12 +1247,14 @@ resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v4" {
   all_ports             = true
   load_balancing_scheme = "EXTERNAL"
   ip_address            = cidrhost(local.virbr1_cidr, tonumber(each.key))
+  #target                = data.google_compute_instance.cml_controller_target_instance.id
   target                = google_compute_target_instance.cml_controller_target_instance[0].id
 }
 
 # IPv6 forwarding rule for protocol forwarding
 resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v6" {
-  count = local.enable_protocol_forwarding_v6 ? local.virbr1_prefix_count_v6 : 0
+  #count = local.enable_protocol_forwarding_v6 ? local.virbr1_prefix_count_v6 : 0
+  count = 0
 
   name                  = "cml-pf-v6-${count.index+1}-${var.options.rand_id}"
   description           = "Protocol forwarding for IPv6 ${cidrsubnet(local.virbr1_cidr_v6, 8, count.index)}"
@@ -1256,5 +1265,6 @@ resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v6" {
   ip_version            = "IPV6"
   ip_address            = cidrsubnet(local.virbr1_cidr_v6, 8, count.index)
   ip_collection         = local.virbr1_load_balancer_ip_collection_v6
+  #target                = data.google_compute_instance.cml_controller_target_instance.id
   target                = google_compute_target_instance.cml_controller_target_instance[0].id
 }

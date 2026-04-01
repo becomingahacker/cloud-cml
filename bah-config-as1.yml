@@ -244,103 +244,15 @@ gcp:
           # believe Google uses different ranges for their own APIs, which
           # should not be included.  I'll probably have to "eat my hat" later
           # if I'm wrong.
-          # https://www.gstatic.com/ipranges/cloud.json
+          # Google Cloud IPv4/IPv6 prefixes for BGP are prepended by Terraform from
+          # https://www.gstatic.com/ipranges/cloud.json (service Google Cloud,
+          # scope = gcp.region and scope global). List only additional prefixes here.
           # https://github.com/femueller/cloud-ip-ranges
           allow_in:
-            # GOOGLE-CLOUD asia-south1
-            - cidr: 34.0.227.0/24
-              le: 32
-            - cidr: 34.14.128.0/18
-              le: 32
-            - cidr: 34.47.128.0/17
-              le: 32
-            - cidr: 34.93.0.0/16
-              le: 32
-            - cidr: 34.100.128.0/17
-              le: 32
-            - cidr: 34.104.108.0/23
-              le: 32
-            - cidr: 34.124.44.0/23
-              le: 32
-            - cidr: 34.152.64.0/22
-              le: 32
-            - cidr: 34.152.106.0/23
-              le: 32
-            - cidr: 34.153.58.0/23
-              le: 32
-            - cidr: 34.153.250.0/23
-              le: 32
-            - cidr: 34.157.87.0/24
-              le: 32
-            - cidr: 34.157.215.0/24
-              le: 32
-            - cidr: 34.177.32.0/22
-              le: 32
-            - cidr: 34.177.74.0/23
-              le: 32
-            - cidr: 35.200.128.0/17
-              le: 32
-            - cidr: 35.201.41.0/24
-              le: 32
-            - cidr: 35.207.192.0/18
-              le: 32
-            - cidr: 35.220.42.0/24
-              le: 32
-            - cidr: 35.234.208.0/20
-              le: 32
-            - cidr: 35.242.42.0/24
-              le: 32
-            - cidr: 35.244.0.0/18
-              le: 32
             # Labs
             - cidr: 10.0.0.0/9
               le: 32
           allow_out:
-            # GOOGLE-CLOUD asia-south1
-            - cidr: 34.0.227.0/24
-              le: 32
-            - cidr: 34.14.128.0/18
-              le: 32
-            - cidr: 34.47.128.0/17
-              le: 32
-            - cidr: 34.93.0.0/16
-              le: 32
-            - cidr: 34.100.128.0/17
-              le: 32
-            - cidr: 34.104.108.0/23
-              le: 32
-            - cidr: 34.124.44.0/23
-              le: 32
-            - cidr: 34.152.64.0/22
-              le: 32
-            - cidr: 34.152.106.0/23
-              le: 32
-            - cidr: 34.153.58.0/23
-              le: 32
-            - cidr: 34.153.250.0/23
-              le: 32
-            - cidr: 34.157.87.0/24
-              le: 32
-            - cidr: 34.157.215.0/24
-              le: 32
-            - cidr: 34.177.32.0/22
-              le: 32
-            - cidr: 34.177.74.0/23
-              le: 32
-            - cidr: 35.200.128.0/17
-              le: 32
-            - cidr: 35.201.41.0/24
-              le: 32
-            - cidr: 35.207.192.0/18
-              le: 32
-            - cidr: 35.220.42.0/24
-              le: 32
-            - cidr: 35.234.208.0/20
-              le: 32
-            - cidr: 35.242.42.0/24
-              le: 32
-            - cidr: 35.244.0.0/18
-              le: 32
             # Labs
             - cidr: 10.0.0.0/9
               le: 32
@@ -351,18 +263,12 @@ gcp:
           # needs Internet access
           originate_default: true
           allow_in:
-            # GOOGLE-CLOUD asia-south1
-            - cidr: 2600:1900:40a0::/44
-              ge: 96
             # OORTIO-IPV6-01/STO-ASIG asia-south1 
             # https://whois.arin.net/rest/net/NET6-2602-80A-F004-1
             # BYOIP nlb-2602-080a-f005-100-56
             - cidr: 2602:80a:f005:100::/56
               ge: 64
           allow_out:
-            # GOOGLE-CLOUD asia-south1
-            - cidr: 2600:1900:40a0::/44
-              ge: 96
             # OORTIO-IPV6-01/STO-ASIG asia-south1
             # BYOIP nlb-2602-080a-f005-100-56
             - cidr: 2602:80a:f005:100::/56

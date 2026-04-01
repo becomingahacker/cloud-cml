@@ -4,7 +4,50 @@
 # All rights reserved.
 #
 
+data "http" "gcp_cloud_ipranges" {
+  url = "https://www.gstatic.com/ipranges/cloud.json"
+
+  lifecycle {
+    postcondition {
+      condition     = self.status_code == 200
+      error_message = "Failed to download GCP cloud IP ranges from https://www.gstatic.com/ipranges/cloud.json"
+    }
+  }
+}
+
 locals {
+
+  # Published Google Cloud IPv4/IPv6 prefixes for this deployment region plus
+  # scope "global". Prepended to BGP allow_in / allow_out from YAML; see
+  # https://www.gstatic.com/ipranges/cloud.json
+  gcp_cloud_ipranges = jsondecode(data.http.gcp_cloud_ipranges.response_body)
+
+  gcp_cloud_iprange_scopes = toset([var.options.cfg.gcp.region, "global"])
+
+  gcp_cloud_ipv4_cidrs = sort(tolist(toset([
+    for p in try(local.gcp_cloud_ipranges.prefixes, []) :
+    p.ipv4Prefix
+    if try(p.ipv4Prefix, null) != null && try(p.service, "") == "Google Cloud" && contains(local.gcp_cloud_iprange_scopes, try(p.scope, ""))
+  ])))
+
+  gcp_cloud_ipv6_cidrs = sort(tolist(toset([
+    for p in try(local.gcp_cloud_ipranges.prefixes, []) :
+    p.ipv6Prefix
+    if try(p.ipv6Prefix, null) != null && try(p.service, "") == "Google Cloud" && contains(local.gcp_cloud_iprange_scopes, try(p.scope, ""))
+  ])))
+
+  gcp_cloud_ipv4_bgp_entries = [for cidr in local.gcp_cloud_ipv4_cidrs : { cidr = cidr, le = 32 }]
+  gcp_cloud_ipv6_bgp_entries = [for cidr in local.gcp_cloud_ipv6_cidrs : { cidr = cidr, ge = 96 }]
+
+  cml_bgp_prefix_lists = {
+    for name, cfg in var.options.cfg.gcp.cml_custom_external_connections : name => {
+      ipv4_allow_in  = concat(local.gcp_cloud_ipv4_bgp_entries, try(cfg.bgp.ipv4.allow_in, []))
+      ipv4_allow_out = concat(local.gcp_cloud_ipv4_bgp_entries, try(cfg.bgp.ipv4.allow_out, []))
+      ipv6_allow_in  = concat(local.gcp_cloud_ipv6_bgp_entries, try(cfg.bgp.ipv6.allow_in, []))
+      ipv6_allow_out = concat(local.gcp_cloud_ipv6_bgp_entries, try(cfg.bgp.ipv6.allow_out, []))
+    }
+    if try(cfg.bgp, null) != null
+  }
 
   cloud_init_config_write_files_template = concat(
     [
@@ -312,8 +355,8 @@ locals {
           ! 
           %{for network_name, config in var.options.cfg.gcp.cml_custom_external_connections}
           %{if try(config.bgp, null) != null}
-          %{for i in range(length(config.bgp.ipv4.allow_out))}
-          ip prefix-list CML_${network_name}_OUT seq ${i + 1} permit ${config.bgp.ipv4.allow_out[i].cidr}%{if try(config.bgp.ipv4.allow_out[i].le, null) != null} le ${config.bgp.ipv4.allow_out[i].le}%{endif}%{if try(config.bgp.ipv4.allow_out[i].ge, null) != null} ge ${config.bgp.ipv4.allow_out[i].ge}%{endif}
+          %{for i in range(length(local.cml_bgp_prefix_lists[network_name].ipv4_allow_out))}
+          ip prefix-list CML_${network_name}_OUT seq ${i + 1} permit ${local.cml_bgp_prefix_lists[network_name].ipv4_allow_out[i].cidr}%{if try(local.cml_bgp_prefix_lists[network_name].ipv4_allow_out[i].le, null) != null} le ${local.cml_bgp_prefix_lists[network_name].ipv4_allow_out[i].le}%{endif}%{if try(local.cml_bgp_prefix_lists[network_name].ipv4_allow_out[i].ge, null) != null} ge ${local.cml_bgp_prefix_lists[network_name].ipv4_allow_out[i].ge}%{endif}
           %{endfor}
           !
           route-map CML_${network_name}_OUT permit 10
@@ -323,8 +366,8 @@ locals {
           route-map CML_${network_name}_OUT deny 20
           exit
           !
-          %{for i in range(length(config.bgp.ipv4.allow_in))}
-          ip prefix-list CML_${network_name}_IN seq ${i + 1} permit ${config.bgp.ipv4.allow_in[i].cidr}%{if try(config.bgp.ipv4.allow_in[i].le, null) != null} le ${config.bgp.ipv4.allow_in[i].le}%{endif}%{if try(config.bgp.ipv4.allow_in[i].ge, null) != null} ge ${config.bgp.ipv4.allow_in[i].ge}%{endif}
+          %{for i in range(length(local.cml_bgp_prefix_lists[network_name].ipv4_allow_in))}
+          ip prefix-list CML_${network_name}_IN seq ${i + 1} permit ${local.cml_bgp_prefix_lists[network_name].ipv4_allow_in[i].cidr}%{if try(local.cml_bgp_prefix_lists[network_name].ipv4_allow_in[i].le, null) != null} le ${local.cml_bgp_prefix_lists[network_name].ipv4_allow_in[i].le}%{endif}%{if try(local.cml_bgp_prefix_lists[network_name].ipv4_allow_in[i].ge, null) != null} ge ${local.cml_bgp_prefix_lists[network_name].ipv4_allow_in[i].ge}%{endif}
           %{endfor}
           !
           route-map CML_${network_name}_IN permit 10
@@ -334,8 +377,8 @@ locals {
           route-map CML_${network_name}_IN deny 20
           exit
           !
-          %{for i in range(length(config.bgp.ipv6.allow_out))}
-          ipv6 prefix-list CML_${network_name}_OUT_V6 seq ${i + 1} permit ${config.bgp.ipv6.allow_out[i].cidr}%{if try(config.bgp.ipv6.allow_out[i].le, null) != null} le ${config.bgp.ipv6.allow_out[i].le}%{endif}%{if try(config.bgp.ipv6.allow_out[i].ge, null) != null} ge ${config.bgp.ipv6.allow_out[i].ge}%{endif}
+          %{for i in range(length(local.cml_bgp_prefix_lists[network_name].ipv6_allow_out))}
+          ipv6 prefix-list CML_${network_name}_OUT_V6 seq ${i + 1} permit ${local.cml_bgp_prefix_lists[network_name].ipv6_allow_out[i].cidr}%{if try(local.cml_bgp_prefix_lists[network_name].ipv6_allow_out[i].le, null) != null} le ${local.cml_bgp_prefix_lists[network_name].ipv6_allow_out[i].le}%{endif}%{if try(local.cml_bgp_prefix_lists[network_name].ipv6_allow_out[i].ge, null) != null} ge ${local.cml_bgp_prefix_lists[network_name].ipv6_allow_out[i].ge}%{endif}
           %{endfor}
           !
           route-map CML_${network_name}_OUT_V6 permit 10
@@ -345,8 +388,8 @@ locals {
           route-map CML_${network_name}_OUT_V6 deny 20
           exit
           !
-          %{for i in range(length(config.bgp.ipv6.allow_in))}
-          ipv6 prefix-list CML_${network_name}_IN_V6 seq ${i + 1} permit ${config.bgp.ipv6.allow_in[i].cidr}%{if try(config.bgp.ipv6.allow_in[i].le, null) != null} le ${config.bgp.ipv6.allow_in[i].le}%{endif}%{if try(config.bgp.ipv6.allow_in[i].ge, null) != null} ge ${config.bgp.ipv6.allow_in[i].ge}%{endif}
+          %{for i in range(length(local.cml_bgp_prefix_lists[network_name].ipv6_allow_in))}
+          ipv6 prefix-list CML_${network_name}_IN_V6 seq ${i + 1} permit ${local.cml_bgp_prefix_lists[network_name].ipv6_allow_in[i].cidr}%{if try(local.cml_bgp_prefix_lists[network_name].ipv6_allow_in[i].le, null) != null} le ${local.cml_bgp_prefix_lists[network_name].ipv6_allow_in[i].le}%{endif}%{if try(local.cml_bgp_prefix_lists[network_name].ipv6_allow_in[i].ge, null) != null} ge ${local.cml_bgp_prefix_lists[network_name].ipv6_allow_in[i].ge}%{endif}
           %{endfor}
           !
           route-map CML_${network_name}_IN_V6 permit 10

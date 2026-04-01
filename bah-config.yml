@@ -269,78 +269,11 @@ gcp:
           # believe Google uses different ranges for their own APIs, which
           # should not be included.  I'll probably have to "eat my hat" later
           # if I'm wrong.
-          # https://www.gstatic.com/ipranges/cloud.json
+          # Google Cloud IPv4/IPv6 prefixes for BGP are prepended by Terraform from
+          # https://www.gstatic.com/ipranges/cloud.json (service Google Cloud,
+          # scope = gcp.region and scope global). List only additional prefixes here.
           # https://github.com/femueller/cloud-ip-ranges
           allow_in:
-            # GOOGLE-CLOUD us-east1
-            - cidr: 34.23.0.0/16
-              le: 32
-            - cidr: 34.24.0.0/15
-              le: 32
-            - cidr: 34.26.0.0/16
-              le: 32
-            - cidr: 34.73.0.0/16
-              le: 32
-            - cidr: 34.74.0.0/15
-              le: 32
-            - cidr: 34.98.128.0/21
-              le: 32
-            - cidr: 34.112.0.0/16
-              le: 32
-            - cidr: 34.118.250.0/23
-              le: 32
-            - cidr: 34.138.0.0/15
-              le: 32
-            - cidr: 34.148.0.0/16
-              le: 32
-            - cidr: 34.152.72.0/21
-              le: 32
-            - cidr: 34.177.40.0/21
-              le: 32
-            - cidr: 35.185.0.0/17
-              le: 32
-            - cidr: 35.190.128.0/18
-              le: 32
-            - cidr: 35.196.0.0/16
-              le: 32
-            - cidr: 35.207.0.0/18
-              le: 32
-            - cidr: 35.211.0.0/16
-              le: 32
-            - cidr: 35.220.0.0/20
-              le: 32
-            - cidr: 35.227.0.0/17
-              le: 32
-            - cidr: 35.229.16.0/20
-              le: 32
-            - cidr: 35.229.32.0/19
-              le: 32
-            - cidr: 35.229.64.0/18
-              le: 32
-            - cidr: 35.231.0.0/16
-              le: 32
-            - cidr: 35.237.0.0/16
-              le: 32
-            - cidr: 35.242.0.0/20
-              le: 32
-            - cidr: 35.243.128.0/17
-              le: 32
-            - cidr: 104.196.0.0/18
-              le: 32
-            - cidr: 104.196.65.0/24
-              le: 32
-            - cidr: 104.196.66.0/23
-              le: 32
-            - cidr: 104.196.68.0/22
-              le: 32
-            - cidr: 104.196.96.0/19
-              le: 32
-            - cidr: 104.196.128.0/18
-              le: 32
-            - cidr: 104.196.192.0/19
-              le: 32
-            - cidr: 162.216.148.0/22
-              le: 32
             # STO-ASIG-IPV4-01
             - cidr: 172.98.19.192/27
               le: 32
@@ -348,75 +281,6 @@ gcp:
             - cidr: 10.0.0.0/10
               le: 32
           allow_out:
-            # GOOGLE-CLOUD us-east1
-            - cidr: 34.23.0.0/16
-              le: 32
-            - cidr: 34.24.0.0/15
-              le: 32
-            - cidr: 34.26.0.0/16
-              le: 32
-            - cidr: 34.73.0.0/16
-              le: 32
-            - cidr: 34.74.0.0/15
-              le: 32
-            - cidr: 34.98.128.0/21
-              le: 32
-            - cidr: 34.112.0.0/16
-              le: 32
-            - cidr: 34.118.250.0/23
-              le: 32
-            - cidr: 34.138.0.0/15
-              le: 32
-            - cidr: 34.148.0.0/16
-              le: 32
-            - cidr: 34.152.72.0/21
-              le: 32
-            - cidr: 34.177.40.0/21
-              le: 32
-            - cidr: 35.185.0.0/17
-              le: 32
-            - cidr: 35.190.128.0/18
-              le: 32
-            - cidr: 35.196.0.0/16
-              le: 32
-            - cidr: 35.207.0.0/18
-              le: 32
-            - cidr: 35.211.0.0/16
-              le: 32
-            - cidr: 35.220.0.0/20
-              le: 32
-            - cidr: 35.227.0.0/17
-              le: 32
-            - cidr: 35.229.16.0/20
-              le: 32
-            - cidr: 35.229.32.0/19
-              le: 32
-            - cidr: 35.229.64.0/18
-              le: 32
-            - cidr: 35.231.0.0/16
-              le: 32
-            - cidr: 35.237.0.0/16
-              le: 32
-            - cidr: 35.242.0.0/20
-              le: 32
-            - cidr: 35.243.128.0/17
-              le: 32
-            - cidr: 104.196.0.0/18
-              le: 32
-            - cidr: 104.196.65.0/24
-              le: 32
-            - cidr: 104.196.66.0/23
-              le: 32
-            - cidr: 104.196.68.0/22
-              le: 32
-            - cidr: 104.196.96.0/19
-              le: 32
-            - cidr: 104.196.128.0/18
-              le: 32
-            - cidr: 104.196.192.0/19
-              le: 32
-            - cidr: 162.216.148.0/22
-              le: 32
             # STO-ASIG-IPV4-01
             - cidr: 172.98.19.192/27
               le: 32
@@ -430,17 +294,11 @@ gcp:
           # needs Internet access
           originate_default: true
           allow_in:
-            # GOOGLE-CLOUD us-east1
-            - cidr: 2600:1900:4020::/44
-              ge: 96
             # OORTIO-IPV6-01/STO-ASIG
             # https://whois.arin.net/rest/net/NET6-2602-80A-F004-1
             - cidr: 2602:80a:f004:200::/56
               ge: 64
           allow_out:
-            # GOOGLE-CLOUD us-east1
-            - cidr: 2600:1900:4020::/44
-              ge: 96
             # OORTIO-IPV6-01/STO-ASIG
             - cidr: 2602:80a:f004:200::/56
               ge: 64
@@ -609,7 +467,8 @@ app:
   # **No longer used, see the secret manager section above**
   #user: admin
   #pass: your-secret-password
-  software: cml2/cml2_2.8.0-6_amd64-32.pkg
+  # HACK cmm - this is not used, but is required by the code.  Fix the code.
+  software: not-used
   # The list must have at least ONE element, this is what the dummy is for in
   # case 00- and 01- are commented out!
   customize:
