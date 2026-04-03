@@ -469,6 +469,17 @@ secret:
       # Used with Vault only:
       #field: secret
 
+    iap_oauth2_client:
+      id: 344691804483-52ph1m3hd9sg5eeg216i0airbmrloh83.apps.googleusercontent.com
+      # Used with dummy secret manager.  If unspecified, a random password will
+      # be generated.
+      #raw_secret: your-secret-password
+      # Path to secret, used with both Vault and Conjur:
+      path: sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/iap_oauth2_client_secret
+      # Used with Vault only:
+      #field: secret
+
+
 app:
   # **No longer used, see the secret manager section above**
   #user: admin

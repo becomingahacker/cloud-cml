@@ -1147,21 +1147,9 @@ resource "google_compute_backend_service" "cml_backend_controller" {
 resource "google_iap_web_backend_service_iam_member" "cml_iap_https_access" {
   for_each = local.cml_iap_enabled ? local.cml_iap_https_access_groups : toset([])
 
-  project             = var.options.cfg.gcp.project
   web_backend_service = google_compute_backend_service.cml_backend_controller.name
   role                = "roles/iap.httpsResourceAccessor"
   member              = each.value
-
-  dynamic "condition" {
-    for_each = length(local.cml_load_balancer_fqdns) > 0 ? [1] : []
-    content {
-      title       = "CML LB virtual hosts (gcp.load_balancer_fqdns)"
-      description = "Allow IAP only when the HTTP Host header matches a configured load_balancer_fqdns entry."
-      expression  = local.cml_iap_request_host_condition
-    }
-  }
-
-  depends_on = [google_compute_backend_service.cml_backend_controller]
 }
 
 # Trusted / allowed domains for this IAP-protected backend (see API AllowedDomainsSettings).
@@ -1175,6 +1163,17 @@ resource "google_iap_settings" "cml_lb" {
     allowed_domains_settings {
       enable  = true
       domains = [for h in local.cml_load_balancer_fqdns : lower(h)]
+    }
+    oauth_settings {
+      client_id = try(var.options.cfg.secrets.iap_oauth2_client.id, null)
+      client_secret = try(var.options.cfg.secrets.iap_oauth2_client.secret, null)
+    }
+  }
+
+  application_settings {
+    attribute_propagation_settings {
+      enable = false
+      output_credentials = []
     }
   }
 
