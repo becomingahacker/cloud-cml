@@ -38,10 +38,7 @@ output "target_instance_self_link" {
   value       = try(google_compute_target_instance.cml_controller_target_instance[0].self_link, null)
 }
 
-# Populated by Google when IAP is enabled on the backend service (Compute API iap.oauth2ClientId).
-# Same value as: gcloud compute backend-services describe NAME --global --format='value(iap.oauth2ClientId)'
-# https://cloud.google.com/iap/docs/authentication-howto
-output "iap_oauth2_client_id" {
-  description = "IAP OAuth 2.0 client ID for this HTTPS backend; use as audience when obtaining ID tokens for programmatic access."
-  value       = local.cml_iap_enabled ? try(google_compute_backend_service.cml_backend_controller.iap.oauth2_client_id, null) : null
+output "iap_programmatic_client_id" {
+  description = "IAP programmatic client ID for this HTTPS backend; use as audience when obtaining ID tokens for programmatic access."
+  value       = var.options.cfg.gcp.iap_programmatic_oauth_client_id
 }

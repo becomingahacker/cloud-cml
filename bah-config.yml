@@ -195,16 +195,39 @@ gcp:
   # 
   # https://cloud.google.com/iap/docs/concepts-overview
   #
-  # Terraform enables IAP on the HTTPS backend, grants roles/iap.httpsResourceAccessor
-  # to iap_https_access_groups, restricts those bindings to gcp.load_balancer_fqdns
-  # via IAM conditions on request.host, and sets IAP allowed-domains to the same FQDNs.
   enable_iap: true
 
   # Google Groups allowed to sign in through IAP to the HTTPS load balancer (member
-  # format as in IAM: group:GROUP_EMAIL). Only used when enable_iap is true.
+  # format as in IAM: group:GROUP_EMAIL). Only used when enable_iap is true.  Include
+  # the service account that will be used to programmatically access the IAP-protected
+  # application.
   iap_https_access_groups:
     - group:gcp-hackers@cisco.com
     - group:gcp-script-kiddies@cisco.com
+    - serviceAccount:bah-programmatic-access@gcp-asigbahgcp-nprd-47930.iam.gserviceaccount.com
+
+  # https://console.cloud.google.com/auth/clients?project=gcp-asigbahgcp-nprd-47930
+  #
+  # Important: IAP-protected applications that use the Google-managed OAuth
+  # client must be accessed programmatically using a separate OAuth client ID
+  # configured through the programmatic_clients setting.  You almost certainly want
+  # to configure this.
+  #
+  # Extra allowed redirect URIs for the IAM OAuth client (required).
+  # https://iap.googleapis.com/v1/oauth/clientIds/CLIENT_ID_FROM_OUTPUT:handleRedirect
+  #
+  # Documentation:
+  # https://docs.cloud.google.com/iap/docs/custom-oauth-configuration
+
+  # BAH-programmatic-access OAuth2 Client ID - **Created manually in the WebUI.**
+  iap_programmatic_oauth_client_id: 344691804483-6qe8toekh0trb8a3hipistrueq8drah8.apps.googleusercontent.com
+  # Example:
+  # ```shell
+  # curl -s https://becomingahacker.com/ -H "Proxy-Authorization: Bearer $(gcloud auth print-identity-token \
+  #   --impersonate-service-account=bah-programmatic-access@gcp-asigbahgcp-nprd-47930.iam.gserviceaccount.com \
+  #   --include-email \
+  #   --audiences=344691804483-6qe8toekh0trb8a3hipistrueq8drah8.apps.googleusercontent.com )"
+  # ```
 
   # BGP configuration.  Used for BGP EVPN and BGP peering with custom external 
   # networks.
@@ -469,8 +492,16 @@ secret:
       # Used with Vault only:
       #field: secret
 
-    iap_oauth2_client:
-      id: 344691804483-52ph1m3hd9sg5eeg216i0airbmrloh83.apps.googleusercontent.com
+    iap_oauth2_client_id:
+      # Used with dummy secret manager.  If unspecified, a random password will
+      # be generated.
+      #raw_secret: your-secret-password
+      # Path to secret, used with both Vault and Conjur:
+      path: sto/becomingahacker/secret/common/becomingahacker.com/prod/host/cml-0.becomingahacker.com/iap_oauth2_client_id
+      # Used with Vault only:
+      #field: secret
+
+    iap_oauth2_client_secret:
       # Used with dummy secret manager.  If unspecified, a random password will
       # be generated.
       #raw_secret: your-secret-password

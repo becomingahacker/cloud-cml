@@ -111,13 +111,6 @@ locals {
   cml_iap_https_access_groups = toset(try(var.options.cfg.gcp.iap_https_access_groups, []))
 
   cml_load_balancer_fqdns = try(var.options.cfg.gcp.load_balancer_fqdns, [])
-
-  # https://cloud.google.com/iap/docs/cloud-iap-context-aware-access-howto
-  cml_iap_request_host_condition = (
-    length(local.cml_load_balancer_fqdns) == 0 ? "true" : join(" || ", [
-      for h in local.cml_load_balancer_fqdns : format("request.host == \"%s\"", lower(h))
-    ])
-  )
 }
 
 data "google_project" "cml_project" {
@@ -1165,8 +1158,7 @@ resource "google_iap_settings" "cml_lb" {
       domains = [for h in local.cml_load_balancer_fqdns : lower(h)]
     }
     oauth_settings {
-      client_id = try(var.options.cfg.secrets.iap_oauth2_client.id, null)
-      client_secret = try(var.options.cfg.secrets.iap_oauth2_client.secret, null)
+      programmatic_clients = try([var.options.cfg.gcp.iap_programmatic_oauth_client_id], [])
     }
   }
 
@@ -1176,8 +1168,6 @@ resource "google_iap_settings" "cml_lb" {
       output_credentials = []
     }
   }
-
-  depends_on = [google_compute_backend_service.cml_backend_controller]
 }
 
 resource "google_compute_url_map" "cml_lb_http_redirect" {
