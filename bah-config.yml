@@ -38,7 +38,6 @@ azure:
 
 # TODO cmm - Put secrets in secret manager
 gcp:
-
   # Path to JSON-formatted service account key file.  Not required if using
   # 'gcloud auth application-default login' to authenticate to Google Cloud.
   # Leave empty in this case.
@@ -46,8 +45,9 @@ gcp:
 
   # SSH public keys to add to controller and compute instances.  Leave empty to
   # inherit from the project's metadata.  Automatically creates user with sudo
-  # privileges.  NOTE: The controller should listen on SSH port 1122 for these
-  # credentials.  SSH port 22 is used for the built-in CML console server.
+  # privileges.  NOTE: The controller and computes should listen on SSH port
+  # 1122 for these credentials.  SSH port 22 is used for the built-in CML
+  # console server.
   #
   # Format: <user>:<ssh-key-type> <ssh public key> [<optional comment>]
   # e.g. 
@@ -58,6 +58,25 @@ gcp:
   #
   # https://cloud.google.com/compute/docs/instances/access-overview
   #
+  # It's recommended not to use this.  Use OS-Login through the Identity Aware
+  # Proxy instead:
+  # ```shell
+  # gcloud compute instances list --project=gcp-asigbahgcp-nprd-47930
+  # NAME              ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP                    STATUS
+  # cml-controller    us-east1-b  n2-standard-4               10.64.1.2    172.98.19.192                  RUNNING
+  #                                                                        2602:80a:f004:301:0:0:0:0/96
+  # cml-compute-p08x  us-east1-d  n2-highmem-32               10.64.1.208  2602:80a:f004:301:0:4e:0:0/96  RUNNING
+  # 
+  # gcloud compute ssh cml-controller --project=gcp-asigbahgcp-nprd-47930 --zone=us-east1-b --tunnel-through-iap --ssh-flag='-p1122'
+  # ...
+  # Welcome to Ubuntu 24.04.4 LTS (GNU/Linux 6.17.0-1009-gcp x86_64)
+  # ...
+  # Version: 2.10.0+build.2
+  # This host is a controller
+  # Compute ID: da186159-0f43-4347-bd9b-f56335df3267
+  # 
+  # cmm_cisco_com@cml-controller:~$
+  # ```
   ssh_keys:
 
   # Google Cloud Platform project, region, and availablility zone.  Required.
@@ -221,6 +240,7 @@ gcp:
 
   # BAH-programmatic-access OAuth2 Client ID - **Created manually in the WebUI.**
   iap_programmatic_oauth_client_id: 344691804483-6qe8toekh0trb8a3hipistrueq8drah8.apps.googleusercontent.com
+  #
   # Example:
   # ```shell
   # curl -s https://becomingahacker.com/ -H "Proxy-Authorization: Bearer $(gcloud auth print-identity-token \
