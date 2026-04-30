@@ -412,6 +412,17 @@ locals {
         content     = yamlencode(local.cml_config_controller)
       },
       {
+        path        = "/etc/sysctl.d/60-cml-ip-forward.conf"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          # Persistent IPv4/IPv6 forwarding (survives reboot). Applied in cloud-init runcmd.
+          net.ipv4.ip_forward = 1
+          net.ipv6.conf.all.forwarding = 1
+          net.ipv6.conf.default.forwarding = 1
+        EOF
+      },
+      {
         path        = "/etc/netplan/60-${local.cluster_interface_name}.yaml"
         owner       = "root:root"
         permissions = "0600"
@@ -767,13 +778,38 @@ locals {
       "firewall-cmd --permanent --zone=dmz --add-service=dns",
       "firewall-cmd --permanent --zone=dmz --add-service=tftp",
       "firewall-cmd --permanent --zone=dmz --add-service=bgp",
+      "firewall-cmd --permanent --zone=dmz --add-service=ntp",
       "firewall-cmd --permanent --zone=dmz --add-interface=virbr1",
-      "firewall-cmd --permanent --new-policy=cml_labs",
-      "firewall-cmd --permanent --policy=cml_labs --add-ingress-zone=dmz",
-      "firewall-cmd --permanent --policy=cml_labs --add-egress-zone=public",
-      # TODO cmm - Remove masquerade.  Leave available for future use.
-      #"firewall-cmd --permanent --policy=cml_labs --add-masquerade",
-      "firewall-cmd --permanent --policy=cml_labs  --set-target=ACCEPT",
+      # IPv4/IPv6 forwarding for labs (virbr1), BGP, and policy routing; sysctl file persists across reboots.
+      "sysctl -p /etc/sysctl.d/60-cml-ip-forward.conf",
+      # HACK cmm - Policy names are limited to 18 characters.
+      # INVALID_NAME: Policy 'from-public-to-dmz-ssh': name has 22 chars, max is 18
+      "firewall-cmd --permanent --new-policy=dmz-to-public",
+      "firewall-cmd --permanent --policy=dmz-to-public --add-ingress-zone=dmz",
+      "firewall-cmd --permanent --policy=dmz-to-public --add-egress-zone=public",
+      # Labs (dmz→public): block cloud instance metadata (e.g. GCP 169.254.169.254).
+      "firewall-cmd --permanent --policy=dmz-to-public --add-rich-rule='rule family=\"ipv4\" destination address=\"169.254.169.254\" drop'",
+      # HACK cmm - Remove masquerade so all pods assume a global address. 
+      # Leave available for future use.
+      #"firewall-cmd --permanent --policy=from-dmz-to-public --add-masquerade",
+      "firewall-cmd --permanent --policy=dmz-to-public  --set-target=ACCEPT",
+      "firewall-cmd --permanent --new-policy=public-to-dmz-ssh",
+      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-ingress-zone=public",
+      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-egress-zone=dmz",
+      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-rich-rule='rule family=\"ipv4\" destination address=\"${local.virbr1_cidr}\" service name=\"ssh\" accept'",
+      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-rich-rule='rule family=\"ipv6\" destination address=\"${local.virbr1_cidr_v6}\" service name=\"ssh\" accept'",
+      # Lower firewalld policy priority value = runs first. SSH must precede pub-to-dmz-icmp (REJECT default).
+      "firewall-cmd --permanent --policy=public-to-dmz-ssh --set-priority=-100",
+      # Non-SSH public→dmz passes to the next policy (ICMP allow + REJECT rest).
+      "firewall-cmd --permanent --policy=public-to-dmz-ssh --set-target=CONTINUE",
+      # Public → dmz (labs on virbr1): ICMP after SSH policy; REJECT only what SSH did not already accept.
+      "firewall-cmd --permanent --new-policy=pub-to-dmz-icmp",
+      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --add-ingress-zone=public",
+      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --add-egress-zone=dmz",
+      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --set-priority=100",
+      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --add-rich-rule='rule family=\"ipv4\" protocol value=\"icmp\" accept'",
+      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --add-rich-rule='rule family=\"ipv6\" protocol value=\"ipv6-icmp\" accept'",
+      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --set-target=REJECT",
       "firewall-cmd --reload",
     ]
   )

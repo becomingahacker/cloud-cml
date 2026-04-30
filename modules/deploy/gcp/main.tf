@@ -598,6 +598,7 @@ resource "google_compute_address" "cml_controller_v6" {
 
 resource "google_compute_instance" "cml_control_instance" {
   name         = var.options.cfg.common.controller_hostname
+  zone         = var.options.cfg.gcp.zone
   machine_type = var.options.cfg.gcp.controller_machine_type
   # WARNING: Changes to instance cause distruction of the instance and 
   # recreation!
@@ -690,7 +691,9 @@ data "cloudinit_config" "cml_controller" {
 
 resource "google_compute_instance_group" "cml_control_instance_group" {
   name      = "cml-control-instance-group-${var.options.rand_id}"
-  instances = [google_compute_instance.cml_control_instance.id]
+  zone      = var.options.cfg.gcp.zone
+  # Use self_link, not .id — the API often rejects short instance URLs for IGs (provider #9869 / #14157).
+  instances = [google_compute_instance.cml_control_instance.self_link]
 
   named_port {
     name = "http"
@@ -1255,8 +1258,8 @@ locals {
   virbr1_cfg = try(var.options.cfg.gcp.cml_custom_external_connections.virbr1, null)
 
   # IPv4 CIDR parsing for protocol forwarding
-  # For a /27 network, we have 32 addresses total, excluding network (index 0)
-  # and broadcast (index 31), leaving 30 usable addresses (indices 1-30).
+  # Usable hosts exclude network and broadcast for the configured virbr1 IPv4 prefix
+  # length (e.g. /27 → 30 usable, /25 → 126 usable).  Indices 1..(total-2) forward.
   # By default, the last usable address is used as the gateway (CML Controller).
   virbr1_cidr         = try(local.virbr1_cfg.cidr, null)
   virbr1_prefix_len   = local.virbr1_cidr != null ? tonumber(split("/", local.virbr1_cidr)[1]) : 0

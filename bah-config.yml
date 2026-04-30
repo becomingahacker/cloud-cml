@@ -147,8 +147,9 @@ gcp:
   controller_subnet_cidr: 10.64.1.0/24
 
   # CML controller address name.  Used to pick up a BYOIPv4 address for the
-  # controller.
-  controller_address_name: address-172-98-19-192
+  # controller.  Must match the reserved address resource name in GCP (not the
+  # CIDR alone).  Offensive Summit temp: 172.98.18.0/25 BYOIPv4 pool.
+  controller_address_name: address-172-98-18-0
 
   # CML compute subnet name and IPv4 CIDR block.  Only needed if
   # cluster.enable_cluster is set to 'true'.  Leave 'compute_subnet_cidr' empty
@@ -282,22 +283,24 @@ gcp:
       # to start at the middle, and assumes /24 (or /112).  This is to make 
       # room for static IPs at the beginning of the range.  If using BYOIPv4,
       # you must have the addresses available for the subnet.
-      cidr: 172.98.19.192/27
+      # Offensive Summit temp (us-east1): /25 for ~125 pod /32s + controller space.
+      cidr: 172.98.18.0/25
       # "first" or "last" for the gateway address.
       gateway: last
 
       # IP collection for BYOIPv6 used with the network load balancer for
-      # protocol forwarding.
-      load_balancer_ip_collection_v6: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-nlb-2602-80a-f004-200-56
+      # protocol forwarding.  Must match the public delegated prefix name in GCP
+      # for the NLB IPv6 pool (verify with gcloud compute public-delegated-prefixes list).
+      # Offensive Summit temp: /48 covering 256 x /56 pod blocks (us-east1).
+      load_balancer_ip_collection_v6: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-nlb-2602-80a-f006-48
       # IPv6 CIDR block. Used for protocol forwarding.  The first /64 is used
       # for the CML controller.  The second available /64 is used for the first
       # pod.  The number of /64s forwarded for pods is equal to the number of
       # IPv4 addresses available for pods, plus the /64 for the CML controller.
-      cidr_v6: 2602:80a:f004:200::/56
+      cidr_v6: 2602:80a:f006::/48
       # "first" or "last" for the IPv6 gateway address on virbr1.  Only the last
-      # 16 bits are used.  "last" corresponds to e.g. 2602:80a:f004:200::ffff
-      # 2602:80a:f004:200::8000 to 2602:80a:f004:200::fffe are reserved for
-      # DHCPv6.
+      # 16 bits are used.  "last" corresponds to e.g. 2602:80a:f006::ffff
+      # 2602:80a:f006::8000 to 2602:80a:f006::fffe are reserved for DHCPv6.
       gateway_v6: last
 
       # BGP configuration.  Leave empty (null) to disable BGP.  If enabled, the
@@ -322,15 +325,15 @@ gcp:
           # scope = gcp.region and scope global). List only additional prefixes here.
           # https://github.com/femueller/cloud-ip-ranges
           allow_in:
-            # STO-ASIG-IPV4-01
-            - cidr: 172.98.19.192/27
+            # STO-ASIG-IPV4 (Offensive Summit temp, us-east1 BYOIPv4 /25)
+            - cidr: 172.98.18.0/25
               le: 32
             # Labs
             - cidr: 10.0.0.0/10
               le: 32
           allow_out:
-            # STO-ASIG-IPV4-01
-            - cidr: 172.98.19.192/27
+            # STO-ASIG-IPV4 (Offensive Summit temp)
+            - cidr: 172.98.18.0/25
               le: 32
             # Labs
             - cidr: 10.0.0.0/10
@@ -342,14 +345,13 @@ gcp:
           # needs Internet access
           originate_default: true
           allow_in:
-            # OORTIO-IPV6-01/STO-ASIG
-            # https://whois.arin.net/rest/net/NET6-2602-80A-F004-1
-            - cidr: 2602:80a:f004:200::/56
-              ge: 64
+            # Offensive Summit temp (us-east1 BYOIPv6 /48; /56 blocks and more-specifics)
+            - cidr: 2602:80a:f006::/48
+              ge: 56
           allow_out:
-            # OORTIO-IPV6-01/STO-ASIG
-            - cidr: 2602:80a:f004:200::/56
-              ge: 64
+            # Offensive Summit temp
+            - cidr: 2602:80a:f006::/48
+              ge: 56
             # Default
             - cidr: ::/0
 
