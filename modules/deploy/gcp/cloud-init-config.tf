@@ -469,9 +469,9 @@ locals {
         permissions = "0640"
         content     = <<-EOF
           !
-          !ip route ${local.virbr1_cidr} Null0 200
+          !ip route ${local.bridge0_cidr} Null0 200
           ! 
-          !ipv6 route ${local.virbr1_cidr_v6} Null0 200
+          !ipv6 route ${local.bridge0_cidr_v6} Null0 200
           ! 
           %{for network_name, config in var.options.cfg.gcp.cml_custom_external_connections}
           %{if try(config.bgp, null) != null}
@@ -536,7 +536,7 @@ locals {
            neighbor CML_${network_name}_V6 peer-group
            neighbor CML_${network_name}_V6 remote-as ${config.bgp.remote_as}
            neighbor CML_${network_name}_V6 ttl-security hops 1 
-           bgp listen range ${cidrsubnet(local.virbr1_cidr_v6, 8, 0)} peer-group CML_${network_name}_V6
+           bgp listen range ${cidrsubnet(local.bridge0_cidr_v6, 8, 0)} peer-group CML_${network_name}_V6
            %{endif}
            %{endfor}
            !
@@ -599,7 +599,7 @@ locals {
           {
             AdvSendAdvert on;
             AdvManagedFlag on;
-            prefix ${cidrsubnet(local.virbr1_cidr_v6, 8, 0)}
+            prefix ${cidrsubnet(local.bridge0_cidr_v6, 8, 0)}
             {
               AdvOnLink on;
               AdvAutonomous on;
@@ -766,12 +766,12 @@ locals {
       # Start radvd for IPv6 autoconfiguration
       "systemctl enable --now radvd",
       # FIXME cmm - Needs to be made persistent
-      "resolvectl mdns virbr1 no",
+      "resolvectl mdns bridge0 no",
       # Wait for cluster interface (BGP EVPN) to come up
       "while ! firewall-cmd --zone=cluster-internal --list-interfaces ; do sleep 5; done",
       "firewall-cmd --permanent --zone=public --add-service=bgp",
       "firewall-cmd --permanent --zone=public --add-service=vxlan",
-      # Put virbr1 interface in the DMZ and add the same services as the
+      # Put bridge0 interface in the DMZ and add the same services as the
       # libvirt zone. This interface is used for BAH labs.  We don't want
       # students logging in with SSH.
       "firewall-cmd --permanent --zone=dmz --remove-service=ssh",
@@ -781,8 +781,8 @@ locals {
       "firewall-cmd --permanent --zone=dmz --add-service=tftp",
       "firewall-cmd --permanent --zone=dmz --add-service=bgp",
       "firewall-cmd --permanent --zone=dmz --add-service=ntp",
-      "firewall-cmd --permanent --zone=dmz --add-interface=virbr1",
-      # IPv4/IPv6 forwarding for labs (virbr1), BGP, and policy routing; sysctl file persists across reboots.
+      "firewall-cmd --permanent --zone=dmz --add-interface=bridge0",
+      # IPv4/IPv6 forwarding for labs (bridge0), BGP, and policy routing; sysctl file persists across reboots.
       "sysctl -p /etc/sysctl.d/60-cml-ip-forward.conf",
       # HACK cmm - Policy names are limited to 18 characters.
       # INVALID_NAME: Policy 'from-public-to-dmz-ssh': name has 22 chars, max is 18
@@ -798,13 +798,13 @@ locals {
       "firewall-cmd --permanent --new-policy=public-to-dmz-ssh",
       "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-ingress-zone=public",
       "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-egress-zone=dmz",
-      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-rich-rule='rule family=\"ipv4\" destination address=\"${local.virbr1_cidr}\" service name=\"ssh\" accept'",
-      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-rich-rule='rule family=\"ipv6\" destination address=\"${local.virbr1_cidr_v6}\" service name=\"ssh\" accept'",
+      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-rich-rule='rule family=\"ipv4\" destination address=\"${local.bridge0_cidr}\" service name=\"ssh\" accept'",
+      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-rich-rule='rule family=\"ipv6\" destination address=\"${local.bridge0_cidr_v6}\" service name=\"ssh\" accept'",
       # Lower firewalld policy priority value = runs first. SSH must precede pub-to-dmz-icmp (REJECT default).
       "firewall-cmd --permanent --policy=public-to-dmz-ssh --set-priority=-100",
       # Non-SSH public→dmz passes to the next policy (ICMP allow + REJECT rest).
       "firewall-cmd --permanent --policy=public-to-dmz-ssh --set-target=CONTINUE",
-      # Public → dmz (labs on virbr1): ICMP after SSH policy; REJECT only what SSH did not already accept.
+      # Public → dmz (labs on bridge0): ICMP after SSH policy; REJECT only what SSH did not already accept.
       "firewall-cmd --permanent --new-policy=pub-to-dmz-icmp",
       "firewall-cmd --permanent --policy=pub-to-dmz-icmp --add-ingress-zone=public",
       "firewall-cmd --permanent --policy=pub-to-dmz-icmp --add-egress-zone=dmz",

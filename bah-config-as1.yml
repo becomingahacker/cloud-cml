@@ -193,7 +193,7 @@ gcp:
   cml_custom_external_connections:
     # Name of the virtual network.  Also used for the bridge name.  Must be 
     # unique and begin with the prefix `virbr`.
-    virbr1:
+    bridge0:
 
       # MAC address of the bridge.  Should be unique.
       mac_address: '02:00:00:00:00:01'

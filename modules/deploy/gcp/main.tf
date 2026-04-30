@@ -1254,31 +1254,31 @@ resource "google_compute_target_instance" "cml_controller_target_instance" {
 
 # Protocol forwarding configuration
 locals {
-  # virbr1 configuration for protocol forwarding
-  virbr1_cfg = try(var.options.cfg.gcp.cml_custom_external_connections.virbr1, null)
+  # bridge0 configuration for protocol forwarding
+  bridge0_cfg = try(var.options.cfg.gcp.cml_custom_external_connections.bridge0, null)
 
   # IPv4 CIDR parsing for protocol forwarding
-  # Usable hosts exclude network and broadcast for the configured virbr1 IPv4 prefix
+  # Usable hosts exclude network and broadcast for the configured bridge0 IPv4 prefix
   # length (e.g. /27 → 30 usable, /25 → 126 usable).  Indices 1..(total-2) forward.
   # By default, the last usable address is used as the gateway (CML Controller).
-  virbr1_cidr         = try(local.virbr1_cfg.cidr, null)
-  virbr1_prefix_len   = local.virbr1_cidr != null ? tonumber(split("/", local.virbr1_cidr)[1]) : 0
-  virbr1_total_hosts  = local.virbr1_cidr != null ? pow(2, 32 - local.virbr1_prefix_len) : 0
-  virbr1_usable_hosts = local.virbr1_total_hosts > 2 ? local.virbr1_total_hosts - 2 : 0
+  bridge0_cidr         = try(local.bridge0_cfg.cidr, null)
+  bridge0_prefix_len   = local.bridge0_cidr != null ? tonumber(split("/", local.bridge0_cidr)[1]) : 0
+  bridge0_total_hosts  = local.bridge0_cidr != null ? pow(2, 32 - local.bridge0_prefix_len) : 0
+  bridge0_usable_hosts = local.bridge0_total_hosts > 2 ? local.bridge0_total_hosts - 2 : 0
 
   # Generate list of usable host indices (1 to total-2, excluding network and broadcast)
-  virbr1_host_indices = local.virbr1_usable_hosts > 0 ? range(1, local.virbr1_total_hosts - 1) : []
+  bridge0_host_indices = local.bridge0_usable_hosts > 0 ? range(1, local.bridge0_total_hosts - 1) : []
 
   # IPv6 configuration
-  virbr1_cidr_v6                        = try(local.virbr1_cfg.cidr_v6, null)
-  virbr1_load_balancer_ip_collection_v6 = try(local.virbr1_cfg.load_balancer_ip_collection_v6, null)
+  bridge0_cidr_v6                        = try(local.bridge0_cfg.cidr_v6, null)
+  bridge0_load_balancer_ip_collection_v6 = try(local.bridge0_cfg.load_balancer_ip_collection_v6, null)
   # Ultimate number of possible pods.  The first prefix will be used for the CML controller.  The first available
   # prefix will be used for the first pod.
-  virbr1_prefix_count_v6 = local.virbr1_usable_hosts
+  bridge0_prefix_count_v6 = local.bridge0_usable_hosts
 
-  # Enable protocol forwarding only if target instance is enabled and virbr1 has a CIDR
-  enable_protocol_forwarding_v4 = try(var.options.cfg.gcp.target_instance.enable, false) && local.virbr1_cidr != null
-  enable_protocol_forwarding_v6 = try(var.options.cfg.gcp.target_instance.enable, false) && local.virbr1_cidr_v6 != null && local.virbr1_load_balancer_ip_collection_v6 != null
+  # Enable protocol forwarding only if target instance is enabled and bridge0 has a CIDR
+  enable_protocol_forwarding_v4 = try(var.options.cfg.gcp.target_instance.enable, false) && local.bridge0_cidr != null
+  enable_protocol_forwarding_v6 = try(var.options.cfg.gcp.target_instance.enable, false) && local.bridge0_cidr_v6 != null && local.bridge0_load_balancer_ip_collection_v6 != null
 }
 
 ## Fracture the dependency on the target instance
@@ -1290,34 +1290,34 @@ locals {
 # IPv4 forwarding rules for protocol forwarding
 # Forwards all protocols and ports for each usable IP to the target instance
 resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v4" {
-  for_each = local.enable_protocol_forwarding_v4 ? toset([for i in local.virbr1_host_indices : tostring(i)]) : toset([])
+  for_each = local.enable_protocol_forwarding_v4 ? toset([for i in local.bridge0_host_indices : tostring(i)]) : toset([])
   #for_each = toset([])
 
   name                  = "cml-pf-v4-${each.key}-${var.options.rand_id}"
-  description           = "Protocol forwarding for ${cidrhost(local.virbr1_cidr, tonumber(each.key))}"
+  description           = "Protocol forwarding for ${cidrhost(local.bridge0_cidr, tonumber(each.key))}"
   region                = var.options.cfg.gcp.region
   ip_protocol           = "L3_DEFAULT"
   all_ports             = true
   load_balancing_scheme = "EXTERNAL"
-  ip_address            = cidrhost(local.virbr1_cidr, tonumber(each.key))
+  ip_address            = cidrhost(local.bridge0_cidr, tonumber(each.key))
   #target                = data.google_compute_instance.cml_controller_target_instance.id
   target = google_compute_target_instance.cml_controller_target_instance[0].id
 }
 
 # IPv6 forwarding rule for protocol forwarding
 resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v6" {
-  count = local.enable_protocol_forwarding_v6 ? local.virbr1_prefix_count_v6 : 0
+  count = local.enable_protocol_forwarding_v6 ? local.bridge0_prefix_count_v6 : 0
   #count = 0
 
   name                  = "cml-pf-v6-${count.index + 1}-${var.options.rand_id}"
-  description           = "Protocol forwarding for IPv6 ${cidrsubnet(local.virbr1_cidr_v6, 8, count.index)}"
+  description           = "Protocol forwarding for IPv6 ${cidrsubnet(local.bridge0_cidr_v6, 8, count.index)}"
   region                = var.options.cfg.gcp.region
   ip_protocol           = "L3_DEFAULT"
   all_ports             = true
   load_balancing_scheme = "EXTERNAL"
   ip_version            = "IPV6"
-  ip_address            = cidrsubnet(local.virbr1_cidr_v6, 8, count.index)
-  ip_collection         = local.virbr1_load_balancer_ip_collection_v6
+  ip_address            = cidrsubnet(local.bridge0_cidr_v6, 8, count.index)
+  ip_collection         = local.bridge0_load_balancer_ip_collection_v6
   #target                = data.google_compute_instance.cml_controller_target_instance.id
   target = google_compute_target_instance.cml_controller_target_instance[0].id
 }

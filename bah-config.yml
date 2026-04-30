@@ -263,7 +263,7 @@ gcp:
   cml_custom_external_connections:
     # Name of the virtual network.  Also used for the bridge name.  Must be 
     # unique and begin with the prefix `virbr`.
-    virbr1:
+    bridge0:
 
       # MAC address of the bridge.  Should be unique.
       mac_address: '02:00:00:00:00:01'
@@ -298,7 +298,7 @@ gcp:
       # pod.  The number of /64s forwarded for pods is equal to the number of
       # IPv4 addresses available for pods, plus the /64 for the CML controller.
       cidr_v6: 2602:80a:f006::/48
-      # "first" or "last" for the IPv6 gateway address on virbr1.  Only the last
+      # "first" or "last" for the IPv6 gateway address on bridge0.  Only the last
       # 16 bits are used.  "last" corresponds to e.g. 2602:80a:f006::ffff
       # 2602:80a:f006::8000 to 2602:80a:f006::fffe are reserved for DHCPv6.
       gateway_v6: last
