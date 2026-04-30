@@ -752,7 +752,9 @@ locals {
       "/provision/cml.sh || echo 'CML provisioning failed.  Not rebooting' && false",
       "systemctl stop virl2.target",
       # Remove any CML-generated netplan configs
-      "rm -rf /etc/netplan/*-cml2-* || true",
+      "rm -f /etc/netplan/*-cml2-* || true",
+      # Remove any NM-generated netplan configs
+      "rm -f /etc/netplan/90-NM-*.yaml || true",
       "systemctl disable --now virl2-remount-images.service",
       "systemctl daemon-reload",
       # Mount GCS FUSE libvirt images
@@ -822,7 +824,9 @@ locals {
       # Install cml, do not reboot
       "/provision/cml.sh || echo 'CML provisioning failed.' && false",
       # Remove any CML-generated netplan configs
-      "rm -rf /etc/netplan/*-cml2-* || true",
+      "rm -f /etc/netplan/*-cml2-* || true",
+      # Remove any NM-generated netplan configs
+      "rm -f /etc/netplan/90-NM-*.yaml || true",
       # HACK cmm - use Google Cloud Storage instead
       "systemctl stop virl2.target",
       # Stop process that tries to remount NFS from controller.  Use GCS instead.
