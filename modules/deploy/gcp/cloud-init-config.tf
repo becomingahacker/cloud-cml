@@ -789,12 +789,17 @@ locals {
       "firewall-cmd --permanent --new-policy=dmz-to-public",
       "firewall-cmd --permanent --policy=dmz-to-public --add-ingress-zone=dmz",
       "firewall-cmd --permanent --policy=dmz-to-public --add-egress-zone=public",
-      # Labs (dmz→public): block cloud instance metadata (e.g. GCP 169.254.169.254).
-      "firewall-cmd --permanent --policy=dmz-to-public --add-rich-rule='rule family=\"ipv4\" destination address=\"169.254.169.254\" drop'",
       # HACK cmm - Remove masquerade so all pods assume a global address. 
       # Leave available for future use.
       #"firewall-cmd --permanent --policy=from-dmz-to-public --add-masquerade",
-      "firewall-cmd --permanent --policy=dmz-to-public  --set-target=ACCEPT",
+      # Labs (dmz→public): block cloud instance metadata (e.g. GCP 169.254.169.254) and ports 80, 443, 8080-8083.
+      "firewall-cmd --permanent --policy=dmz-to-public --add-rich-rule='rule family=\"ipv4\" destination address=\"169.254.169.254\" port port=\"80\" protocol=\"tcp\" reject'",
+      "firewall-cmd --permanent --policy=dmz-to-public --add-rich-rule='rule family=\"ipv4\" destination address=\"169.254.169.254\" port port=\"443\" protocol=\"tcp\" reject'",
+      "firewall-cmd --permanent --policy=dmz-to-public --add-rich-rule='rule family=\"ipv4\" destination address=\"169.254.169.254\" port port=\"8080-8083\" protocol=\"tcp\" reject'",
+      "firewall-cmd --permanent --policy=dmz-to-public --add-rich-rule='rule family=\"ipv6\" destination address=\"fd20:ce::254\" port port=\"80\" protocol=\"tcp\" reject'",
+      "firewall-cmd --permanent --policy=dmz-to-public --add-rich-rule='rule family=\"ipv6\" destination address=\"fd20:ce::254\" port port=\"443\" protocol=\"tcp\" reject'",
+      "firewall-cmd --permanent --policy=dmz-to-public --add-rich-rule='rule family=\"ipv6\" destination address=\"fd20:ce::254\" port port=\"8080-8083\" protocol=\"tcp\" reject'",
+      "firewall-cmd --permanent --policy=dmz-to-public --set-target=ACCEPT",
       "firewall-cmd --permanent --new-policy=public-to-dmz-ssh",
       "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-ingress-zone=public",
       "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-egress-zone=dmz",
