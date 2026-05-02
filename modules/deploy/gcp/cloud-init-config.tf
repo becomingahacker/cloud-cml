@@ -418,6 +418,8 @@ locals {
         content     = <<-EOF
           # Persistent IPv4/IPv6 forwarding (survives reboot). Applied in cloud-init runcmd.
           net.ipv4.ip_forward = 1
+          net.ipv4.conf.all.forwarding = 1
+          net.ipv4.conf.default.forwarding = 1
           net.ipv6.conf.all.forwarding = 1
           net.ipv6.conf.default.forwarding = 1
         EOF
