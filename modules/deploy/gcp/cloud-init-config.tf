@@ -223,6 +223,7 @@ locals {
             mkdir -p /srv/data/gcsfuse-cache ; \
             mkdir -p /srv/data/docker ; \
             mkdir -p /srv/data/virl2-images ; \
+            chown virl2:virl2 /srv/data/virl2-images ; \
             touch /srv/data/.formatted ; \
             umount /srv/data ; \
           '
