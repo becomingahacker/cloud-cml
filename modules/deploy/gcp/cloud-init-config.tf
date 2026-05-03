@@ -188,14 +188,14 @@ locals {
         })
       },
       {
-        path        = "/etc/systemd/system/format-gcsfuse-cache.service"
+        path        = "/etc/systemd/system/format-local-data.service"
         owner       = "root:root"
         permissions = "0644"
         content     = <<-EOF
           [Unit]
-          Description=Create LVM volume from NVMe local disks for /srv/data/gcsfuse-cache
-          Before=srv-data-gcsfuse\x2dcache.mount
-          ConditionPathExists=!/srv/data/gcsfuse-cache/.formatted
+          Description=Create LVM volume from NVMe local disks for /srv/data
+          Before=srv-data.mount
+          ConditionPathExists=!/srv/data/.formatted
   
           [Service]
           Type=oneshot
@@ -210,37 +210,82 @@ locals {
               echo "ERROR: No NVMe disks found" >&2 ; \
               exit 1 ; \
             fi ; \
-            echo "Creating LVM cache volume from: $DISKS" ; \
+            echo "Creating LVM volume from: $DISKS" ; \
             for d in $DISKS; do \
               wipefs -af "$d" ; \
               pvcreate -ff -y "$d" ; \
             done ; \
-            vgcreate vg_cache $DISKS ; \
-            lvcreate -l 100%%FREE -n lv_cache vg_cache ; \
-            mkfs.ext4 /dev/vg_cache/lv_cache ; \
+            vgcreate vg_data $DISKS ; \
+            lvcreate -l 100%%FREE -n lv_data vg_data ; \
+            mkfs.ext4 /dev/vg_data/lv_data ; \
+            mkdir -p /srv/data ; \
+            mount /dev/vg_data/lv_data /srv/data ; \
             mkdir -p /srv/data/gcsfuse-cache ; \
-            touch /srv/data/gcsfuse-cache/.formatted ; \
+            mkdir -p /srv/data/docker ; \
+            mkdir -p /srv/data/virl2-images ; \
+            touch /srv/data/.formatted ; \
+            umount /srv/data ; \
           '
           [Install]
           WantedBy=multi-user.target
         EOF
       },
       {
-        path        = "/etc/systemd/system/srv-data-gcsfuse\\x2dcache.mount"
+        path        = "/etc/systemd/system/srv-data.mount"
         owner       = "root:root"
         permissions = "0644"
         content     = <<-EOF
           [Unit]
-          Description=Mount /srv/data/gcsfuse-cache
-          Requires=format-gcsfuse-cache.service
-          After=format-gcsfuse-cache.service
+          Description=Mount /srv/data (NVMe LVM volume)
+          Requires=format-local-data.service
+          After=format-local-data.service
   
           [Mount]
-          What=/dev/vg_cache/lv_cache
-          Where=/srv/data/gcsfuse-cache
+          What=/dev/vg_data/lv_data
+          Where=/srv/data
           Type=ext4
           Options=defaults
   
+          [Install]
+          WantedBy=multi-user.target
+        EOF
+      },
+      {
+        path        = "/etc/systemd/system/var-lib-docker.mount"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Unit]
+          Description=Bind mount /srv/data/docker to /var/lib/docker
+          Requires=srv-data.mount
+          After=srv-data.mount
+
+          [Mount]
+          What=/srv/data/docker
+          Where=/var/lib/docker
+          Type=none
+          Options=bind
+
+          [Install]
+          WantedBy=multi-user.target
+        EOF
+      },
+      {
+        path        = "/etc/systemd/system/var-local-virl2-images.mount"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          [Unit]
+          Description=Bind mount /srv/data/virl2-images to /var/local/virl2/images
+          Requires=srv-data.mount
+          After=srv-data.mount
+
+          [Mount]
+          What=/srv/data/virl2-images
+          Where=/var/local/virl2/images
+          Type=none
+          Options=bind
+
           [Install]
           WantedBy=multi-user.target
         EOF
@@ -252,8 +297,8 @@ locals {
         content     = <<-EOF
           [Unit]
           Description=libvirt images
-          Requires=srv-data-gcsfuse\x2dcache.mount
-          After=srv-data-gcsfuse\x2dcache.mount
+          Requires=srv-data.mount
+          After=srv-data.mount
   
           [Mount]
           What=${var.options.cfg.gcp.libvirt_images_bucket}
