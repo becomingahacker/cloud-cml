@@ -193,8 +193,7 @@ locals {
         permissions = "0644"
         content     = <<-EOF
           [Unit]
-          Description=Partition and format /dev/nvme0n1 for /srv/data/gcsfuse-cache
-          After=dev-nvme0n1.device
+          Description=Create LVM volume from NVMe local disks for /srv/data/gcsfuse-cache
           Before=srv-data-gcsfuse\x2dcache.mount
           ConditionPathExists=!/srv/data/gcsfuse-cache/.formatted
   
@@ -202,16 +201,25 @@ locals {
           Type=oneshot
           RemainAfterExit=true
           ExecStart=/bin/bash -c ' \
-            if ! lsblk -f /dev/nvme0n1 | grep -q ext4; then \
-              echo "Partitioning disk..." ; \
-              parted /dev/nvme0n1 mklabel gpt ; \
-              parted /dev/nvme0n1 mkpart primary ext4 2048s 100% ; \
-              partprobe ; \
-              echo "Formatting disk..." ; \
-              mkfs.ext4 /dev/nvme0n1p1 ; \
-              mkdir -p /srv/data/gcsfuse-cache ; \
-              touch /srv/data/gcsfuse-cache/.formatted ; \
+            set -e ; \
+            if ! command -v pvcreate >/dev/null 2>&1; then \
+              apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y lvm2 ; \
             fi ; \
+            DISKS=$(lsblk -dpno NAME | grep nvme) ; \
+            if [ -z "$DISKS" ]; then \
+              echo "ERROR: No NVMe disks found" >&2 ; \
+              exit 1 ; \
+            fi ; \
+            echo "Creating LVM cache volume from: $DISKS" ; \
+            for d in $DISKS; do \
+              wipefs -af "$d" ; \
+              pvcreate -ff -y "$d" ; \
+            done ; \
+            vgcreate vg_cache $DISKS ; \
+            lvcreate -l 100%%FREE -n lv_cache vg_cache ; \
+            mkfs.ext4 /dev/vg_cache/lv_cache ; \
+            mkdir -p /srv/data/gcsfuse-cache ; \
+            touch /srv/data/gcsfuse-cache/.formatted ; \
           '
           [Install]
           WantedBy=multi-user.target
@@ -228,7 +236,7 @@ locals {
           After=format-gcsfuse-cache.service
   
           [Mount]
-          What=/dev/nvme0n1p1
+          What=/dev/vg_cache/lv_cache
           Where=/srv/data/gcsfuse-cache
           Type=ext4
           Options=defaults
