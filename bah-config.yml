@@ -225,6 +225,7 @@ gcp:
     - group:gcp-hackers@cisco.com
     - group:gcp-script-kiddies@cisco.com
     - serviceAccount:bah-programmatic-access@gcp-asigbahgcp-nprd-47930.iam.gserviceaccount.com
+    - domain:cisco.com
 
   # https://console.cloud.google.com/auth/clients?project=gcp-asigbahgcp-nprd-47930
   #

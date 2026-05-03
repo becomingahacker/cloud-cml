@@ -52,6 +52,16 @@ locals {
   cloud_init_config_write_files_template = concat(
     [
       {
+        path        = "/etc/rsyslog.d/01-suppress-omfile-noise.conf"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = <<-EOF
+          # Suppress noisy rsyslog omfile suspend/resume internal messages.
+          # https://www.rsyslog.com/e/2007  https://www.rsyslog.com/e/2359
+          if $programname == "rsyslogd" and $msg contains "builtin:omfile" then stop
+        EOF
+      },
+      {
         path        = "/provision/refplat"
         owner       = "root:root"
         permissions = "0644"
@@ -705,6 +715,7 @@ locals {
 
   cloud_init_config_runcmd_template = [
     "set -x",
+
     # Disable Avahi, which may conflict with systemd-resolved for mDNS
     "systemctl disable --now avahi-daemon.socket",
     "systemctl disable --now avahi-daemon.service",
@@ -838,6 +849,8 @@ locals {
       "systemctl stop virl2.target",
       # Stop process that tries to remount NFS from controller.  Use GCS instead.
       "systemctl disable --now virl2-remount-images.service",
+      # Disable timer that tries to remount NFS from controller.  Use GCS instead.
+      "systemctl disable --now virl2-remount-images.timer",
       # Unmount NFS from controller
       "umount /var/lib/libvirt/images || true",
       # Remove the fstab entry
@@ -852,6 +865,9 @@ locals {
       "firewall-cmd --permanent --zone=cluster-internal --add-port=1122/tcp",
       "firewall-cmd --permanent --zone=public --add-service=vxlan",
       "firewall-cmd --reload",
+      # Airhandler (WiFi link service) is not used on computes.
+      # Mask it so virl2.target cannot restart it via PartOf= dependency.
+      "systemctl mask --now virl2-airhandler.service",
     ]
   )
 
