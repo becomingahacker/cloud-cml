@@ -817,17 +817,23 @@ locals {
       # Install cml, do not reboot
       "/provision/cml.sh || echo 'CML provisioning failed.  Not rebooting' && false",
       "systemctl stop virl2.target",
+      "systemctl stop docker.service",
       # Remove any CML-generated netplan configs
       "rm -f /etc/netplan/*-cml2-* || true",
       # Remove any NM-generated netplan configs
       "rm -f /etc/netplan/90-NM-*.yaml || true",
       "systemctl disable --now virl2-remount-images.service",
       "systemctl daemon-reload",
+      # Mount NVMe LVM volume and bind mounts
+      "systemctl enable --now srv-data.mount",
+      "systemctl enable --now var-lib-docker.mount",
+      "systemctl enable --now var-local-virl2-images.mount",
       # Mount GCS FUSE libvirt images
       "systemctl enable --now var-lib-libvirt-images.mount",
       # Still need to export something, so computes are happy on install.
       "sed -i -e 's#^/var/lib/libvirt/images.*#/srv	fe80::%cluster/64(ro,sync,no_subtree_check,crossmnt,fsid=0,no_root_squash)#' /etc/exports",
       "exportfs -r",
+      "systemctl start docker.service",
       "systemctl enable --now virl2.target",
       # Start radvd for IPv6 autoconfiguration
       "systemctl enable --now radvd",
@@ -900,6 +906,7 @@ locals {
       "rm -f /etc/netplan/90-NM-*.yaml || true",
       # HACK cmm - use Google Cloud Storage instead
       "systemctl stop virl2.target",
+      "systemctl stop docker.service",
       # Stop process that tries to remount NFS from controller.  Use GCS instead.
       "systemctl disable --now virl2-remount-images.service",
       # Disable timer that tries to remount NFS from controller.  Use GCS instead.
@@ -909,9 +916,14 @@ locals {
       # Remove the fstab entry
       "sed -i '/^cml-controller.local.*/d' /etc/fstab",
       "systemctl daemon-reload",
+      # Mount NVMe LVM volume and bind mounts
+      "systemctl enable --now srv-data.mount",
+      "systemctl enable --now var-lib-docker.mount",
+      "systemctl enable --now var-local-virl2-images.mount",
       # Mount GCS FUSE libvirt images
       "systemctl enable --now var-lib-libvirt-images.mount",
       # HACK cmm - Allow gcsfuse to work for /var/lib/libvirt/images. Keep the LLD happy.
+      "systemctl start docker.service",
       "systemctl enable --now virl2.target",
       # Wait for cluster interface to come up
       "while ! firewall-cmd --zone=cluster-internal --list-interfaces ; do sleep 5; done",
