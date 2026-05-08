@@ -596,11 +596,11 @@ locals {
            %{for network_name, config in var.options.cfg.gcp.cml_custom_external_connections}
            %{if try(config.bgp, null) != null}
            neighbor CML_${network_name} peer-group
-           neighbor CML_${network_name} remote-as ${config.bgp.remote_as}
+           neighbor CML_${network_name} remote-as external
            neighbor CML_${network_name} ttl-security hops 1
            bgp listen range ${config.cidr} peer-group CML_${network_name}
            neighbor CML_${network_name}_V6 peer-group
-           neighbor CML_${network_name}_V6 remote-as ${config.bgp.remote_as}
+           neighbor CML_${network_name}_V6 remote-as external
            neighbor CML_${network_name}_V6 ttl-security hops 1 
            bgp listen range ${cidrsubnet(local.bridge0_cidr_v6, 8, 0)} peer-group CML_${network_name}_V6
            %{endif}
