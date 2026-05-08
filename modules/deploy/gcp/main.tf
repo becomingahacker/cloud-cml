@@ -1272,9 +1272,28 @@ locals {
   # IPv6 configuration
   bridge0_cidr_v6                        = try(local.bridge0_cfg.cidr_v6, null)
   bridge0_load_balancer_ip_collection_v6 = try(local.bridge0_cfg.load_balancer_ip_collection_v6, null)
-  # Ultimate number of possible pods.  The first prefix will be used for the CML controller.  The first available
-  # prefix will be used for the first pod.
-  bridge0_prefix_count_v6 = local.bridge0_usable_hosts
+
+  # Prefix addressing mode: "hex" (default) or "decimal".
+  # In hex mode, the pod number is the cidrsubnet index (standard behavior, up to 256).
+  # In decimal mode, each decimal digit of the pod number maps to a hex nibble
+  # (BCD encoding), so the address visually reads as the pod number in decimal.
+  # Decimal mode is limited to indices 0-99 (0x00-0x99).
+  bridge0_prefix_v6_mode = try(local.bridge0_cfg.prefix_v6_mode, "hex")
+
+  # Total forwarding rule count.  Capped at 100 in decimal mode (indices 0-99).
+  bridge0_prefix_count_v6 = min(
+    local.bridge0_usable_hosts,
+    local.bridge0_prefix_v6_mode == "decimal" ? 100 : 256
+  )
+
+  # Precomputed cidrsubnet indices per forwarding rule.
+  # Hex mode:     index N → cidrsubnet index N  (identity).
+  # Decimal mode: index N → BCD(N), e.g. 15 → 0x15 = 21, so cidrsubnet(…, 8, 21)
+  #               yields …:1500::/56 which visually reads as pod 15.
+  bridge0_prefix_v6_indices = [
+    for i in range(local.bridge0_prefix_count_v6) :
+    local.bridge0_prefix_v6_mode == "decimal" ? floor(i / 10) * 16 + (i % 10) : i
+  ]
 
   # Enable protocol forwarding only if target instance is enabled and bridge0 has a CIDR
   enable_protocol_forwarding_v4 = try(var.options.cfg.gcp.target_instance.enable, false) && local.bridge0_cidr != null
@@ -1309,15 +1328,22 @@ resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v6" {
   count = local.enable_protocol_forwarding_v6 ? local.bridge0_prefix_count_v6 : 0
   #count = 0
 
-  name                  = "cml-pf-v6-${count.index + 1}-${var.options.rand_id}"
-  description           = "Protocol forwarding for IPv6 ${cidrsubnet(local.bridge0_cidr_v6, 8, count.index)}"
+  name                  = "cml-pf-v6-${count.index}-${var.options.rand_id}"
+  description           = "Protocol forwarding for IPv6 ${cidrsubnet(local.bridge0_cidr_v6, 8, local.bridge0_prefix_v6_indices[count.index])}"
   region                = var.options.cfg.gcp.region
   ip_protocol           = "L3_DEFAULT"
   all_ports             = true
   load_balancing_scheme = "EXTERNAL"
   ip_version            = "IPV6"
-  ip_address            = cidrsubnet(local.bridge0_cidr_v6, 8, count.index)
+  ip_address            = cidrsubnet(local.bridge0_cidr_v6, 8, local.bridge0_prefix_v6_indices[count.index])
   ip_collection         = local.bridge0_load_balancer_ip_collection_v6
   #target                = data.google_compute_instance.cml_controller_target_instance.id
   target = google_compute_target_instance.cml_controller_target_instance[0].id
+
+  lifecycle {
+    precondition {
+      condition     = local.bridge0_prefix_v6_mode == "hex" || local.bridge0_prefix_v6_mode == "decimal"
+      error_message = "bridge0.prefix_v6_mode must be \"hex\" or \"decimal\"."
+    }
+  }
 }

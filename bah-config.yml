@@ -294,11 +294,19 @@ gcp:
       # for the NLB IPv6 pool (verify with gcloud compute public-delegated-prefixes list).
       # Offensive Summit temp: /48 covering 256 x /56 pod blocks (us-east1).
       load_balancer_ip_collection_v6: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-nlb-2602-80a-f006-48
-      # IPv6 CIDR block. Used for protocol forwarding.  The first /64 is used
-      # for the CML controller.  The second available /64 is used for the first
-      # pod.  The number of /64s forwarded for pods is equal to the number of
-      # IPv4 addresses available for pods, plus the /64 for the CML controller.
+      # IPv6 CIDR block. Used for protocol forwarding.  The first /56 is used
+      # for the CML controller.  Subsequent /56s are used for pods.  The number
+      # of /56s forwarded is equal to the number of IPv4 addresses available for
+      # pods, plus the /56 for the CML controller.
       cidr_v6: 2602:80a:f006::/48
+      # IPv6 prefix addressing mode for /56 allocations within the /48.
+      #   "hex"     - (default) Subnet index equals the pod number in hex.
+      #               Pod 10 -> 2602:80a:f006:a00::/56.  Supports up to 256 pods.
+      #   "decimal" - Decimal digits of the pod number are placed as hex nibbles
+      #               (BCD encoding) so the address reads as decimal.
+      #               Pod 10 -> 2602:80a:f006:1000::/56.  Limited to 100 rules
+      #               (indices 0-99).
+      prefix_v6_mode: decimal
       # "first" or "last" for the IPv6 gateway address on bridge0.  Only the last
       # 16 bits are used.  "last" corresponds to e.g. 2602:80a:f006::ffff
       # 2602:80a:f006::8000 to 2602:80a:f006::fffe are reserved for DHCPv6.
