@@ -203,6 +203,31 @@ gcp:
    - becomingahacker.com
    - labs.becomingahacker.com
 
+  # Lab guides reverse proxy configuration.  Each entry creates a path-based
+  # reverse proxy on the load balancer.  Visiting /<name> on any load balancer
+  # FQDN transparently proxies the connection to the specified URL without a
+  # browser redirect (the URL bar stays the same).
+  #
+  # Requires 'enable_load_balancer: true' and 'load_balancer_fqdns' to be set.
+  # Each guide creates a GCP Internet NEG backend with path-based routing in
+  # the URL map.
+  #
+  # Example:
+  #   lab_guides:
+  #     - name: training
+  #       url: https://training.becomingahacker.com/
+  #     - name: guide
+  #       url: https://cl-ltr.ciscolabs.com/54c0e64bf3/
+  #
+  # With the above, https://becomingahacker.com/guide transparently proxies to
+  # https://cl-ltr.ciscolabs.com/54c0e64bf3/ and https://becomingahacker.com/training
+  # proxies to https://training.becomingahacker.com/.
+  lab_guides:
+    - name: guide
+      url: https://cl-ltr.ciscolabs.com/54c0e64bf3/
+    - name: training
+      url: https://training.becomingahacker.com/
+
   # Enable Identity-Aware Proxy (IAP) for the load balancer.  If set to 'true',
   # you will need to log in with your Google account to access the controller.
   # If set to 'false', the controller will be accessible anonymously to any user
@@ -307,6 +332,10 @@ gcp:
       #               Pod 10 -> 2602:80a:f006:1000::/56.  Limited to 100 rules
       #               (indices 0-99).
       prefix_v6_mode: decimal
+      # Maximum number of IPv6 /56 forwarding rules to create.  When unset,
+      # defaults to the mode limit (100 for decimal, 256 for hex) or the
+      # number of IPv4 usable hosts, whichever is smaller.
+      prefix_count_v6: 32
       # "first" or "last" for the IPv6 gateway address on bridge0.  Only the last
       # 16 bits are used.  "last" corresponds to e.g. 2602:80a:f006::ffff
       # 2602:80a:f006::8000 to 2602:80a:f006::fffe are reserved for DHCPv6.

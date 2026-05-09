@@ -111,6 +111,26 @@ locals {
   cml_iap_https_access_groups = toset(try(var.options.cfg.gcp.iap_https_access_groups, []))
 
   cml_load_balancer_fqdns = try(var.options.cfg.gcp.load_balancer_fqdns, [])
+
+  # Lab guides: parse each entry's URL into host, port, protocol, and rewrite
+  # path so the URL map can reverse-proxy /<name> to the external origin.
+  cml_lab_guides = try(var.options.cfg.gcp.lab_guides, [])
+
+  cml_lab_guides_map = {
+    for idx, guide in local.cml_lab_guides : guide.name => {
+      name         = guide.name
+      url          = guide.url
+      host         = regex("https?://([^/:]+)", guide.url)[0]
+      tls          = startswith(guide.url, "https")
+      port         = startswith(guide.url, "https") ? 443 : 80
+      rewrite_path = try(regex("https?://[^/]+(/.*)", guide.url)[0], "/")
+    }
+  }
+
+  # for_each on a map iterates in alphabetical key order, so priorities must
+  # follow that same order.  Redirect rules (1..N) come before proxy rules
+  # (N+1..2N) to keep the sequence strictly increasing within the path_matcher.
+  cml_lab_guides_sorted_keys = sort(keys(local.cml_lab_guides_map))
 }
 
 data "google_project" "cml_project" {
@@ -690,8 +710,8 @@ data "cloudinit_config" "cml_controller" {
 }
 
 resource "google_compute_instance_group" "cml_control_instance_group" {
-  name      = "cml-control-instance-group-${var.options.rand_id}"
-  zone      = var.options.cfg.gcp.zone
+  name = "cml-control-instance-group-${var.options.rand_id}"
+  zone = var.options.cfg.gcp.zone
   # Use self_link, not .id — the API often rejects short instance URLs for IGs (provider #9869 / #14157).
   instances = [google_compute_instance.cml_control_instance.self_link]
 
@@ -1167,7 +1187,84 @@ resource "google_iap_settings" "cml_lb" {
 
   application_settings {
     attribute_propagation_settings {
-      enable = false
+      enable             = false
+      output_credentials = []
+    }
+  }
+}
+
+# Lab guide reverse proxy backends.
+# Each lab guide entry gets an Internet NEG pointing to the external origin
+# and a backend service the URL map can route to.
+resource "google_compute_global_network_endpoint_group" "lab_guide" {
+  for_each = local.cml_lab_guides_map
+
+  name                  = "cml-lab-guide-${each.key}-${var.options.rand_id}"
+  network_endpoint_type = "INTERNET_FQDN_PORT"
+  default_port          = each.value.port
+}
+
+resource "google_compute_global_network_endpoint" "lab_guide" {
+  for_each = local.cml_lab_guides_map
+
+  global_network_endpoint_group = google_compute_global_network_endpoint_group.lab_guide[each.key].id
+  fqdn                          = each.value.host
+  port                          = each.value.port
+}
+
+resource "google_compute_backend_service" "lab_guide" {
+  for_each = local.cml_lab_guides_map
+
+  name        = "cml-lab-guide-${each.key}-${var.options.rand_id}"
+  description = "Lab guide reverse proxy: /${each.key} -> ${each.value.url}"
+
+  backend {
+    group = google_compute_global_network_endpoint_group.lab_guide[each.key].id
+  }
+
+  protocol              = each.value.tls ? "HTTPS" : "HTTP"
+  load_balancing_scheme = "EXTERNAL_MANAGED"
+  enable_cdn            = false
+  security_policy       = google_compute_security_policy.cml_security_policy.id
+
+  iap {
+    enabled = local.cml_iap_enabled
+  }
+
+  depends_on = [
+    google_compute_global_network_endpoint.lab_guide,
+  ]
+}
+
+resource "google_iap_web_backend_service_iam_member" "lab_guide_iap_https_access" {
+  for_each = local.cml_iap_enabled ? {
+    for pair in setproduct(keys(local.cml_lab_guides_map), local.cml_iap_https_access_groups) :
+    "${pair[0]}/${pair[1]}" => { guide = pair[0], member = pair[1] }
+  } : {}
+
+  web_backend_service = google_compute_backend_service.lab_guide[each.value.guide].name
+  role                = "roles/iap.httpsResourceAccessor"
+  member              = each.value.member
+}
+
+resource "google_iap_settings" "lab_guide" {
+  for_each = local.cml_iap_enabled && length(local.cml_load_balancer_fqdns) > 0 ? local.cml_lab_guides_map : {}
+
+  name = "projects/${data.google_project.cml_project.number}/iap_web/compute/services/${google_compute_backend_service.lab_guide[each.key].name}"
+
+  access_settings {
+    allowed_domains_settings {
+      enable  = true
+      domains = [for h in local.cml_load_balancer_fqdns : lower(h)]
+    }
+    oauth_settings {
+      programmatic_clients = try([var.options.cfg.gcp.iap_programmatic_oauth_client_id], [])
+    }
+  }
+
+  application_settings {
+    attribute_propagation_settings {
+      enable             = false
       output_credentials = []
     }
   }
@@ -1211,6 +1308,65 @@ resource "google_compute_url_map" "cml_lb_https" {
   name            = "cml-lb-https-${var.options.rand_id}"
   description     = "cml-lb-https"
   default_service = google_compute_backend_service.cml_backend_controller.id
+
+  # When lab guides are configured, add path-based routing so that /<name>
+  # transparently reverse-proxies to the external origin URL.
+  dynamic "host_rule" {
+    for_each = length(local.cml_lab_guides) > 0 ? [1] : []
+    content {
+      hosts        = ["*"]
+      path_matcher = "lab-guides"
+    }
+  }
+
+  dynamic "path_matcher" {
+    for_each = length(local.cml_lab_guides) > 0 ? [1] : []
+    content {
+      name            = "lab-guides"
+      default_service = google_compute_backend_service.cml_backend_controller.id
+
+      # Redirect /<name> (no trailing slash) to /<name>/ so that relative
+      # URLs in the proxied response resolve correctly.
+      # Priorities 1..N in alphabetical key order.
+      dynamic "route_rules" {
+        for_each = local.cml_lab_guides_map
+        content {
+          priority = index(local.cml_lab_guides_sorted_keys, route_rules.key) + 1
+
+          match_rules {
+            full_path_match = "/${route_rules.key}"
+          }
+
+          url_redirect {
+            path_redirect          = "/${route_rules.key}/"
+            redirect_response_code = "MOVED_PERMANENTLY_DEFAULT"
+            strip_query            = false
+          }
+        }
+      }
+
+      # Proxy /<name>/ to the external origin.
+      # Priorities N+1..2N in alphabetical key order.
+      dynamic "route_rules" {
+        for_each = local.cml_lab_guides_map
+        content {
+          priority = length(local.cml_lab_guides_sorted_keys) + index(local.cml_lab_guides_sorted_keys, route_rules.key) + 1
+          service  = google_compute_backend_service.lab_guide[route_rules.key].id
+
+          match_rules {
+            prefix_match = "/${route_rules.key}/"
+          }
+
+          route_action {
+            url_rewrite {
+              host_rewrite        = route_rules.value.host
+              path_prefix_rewrite = route_rules.value.rewrite_path
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 resource "google_compute_target_https_proxy" "cml_target_https_proxy" {
@@ -1280,11 +1436,14 @@ locals {
   # Decimal mode is limited to indices 0-99 (0x00-0x99).
   bridge0_prefix_v6_mode = try(local.bridge0_cfg.prefix_v6_mode, "hex")
 
-  # Total forwarding rule count.  Capped at 100 in decimal mode (indices 0-99).
-  bridge0_prefix_count_v6 = min(
-    local.bridge0_usable_hosts,
+  # Maximum from config, falling back to the mode-dependent ceiling.
+  bridge0_prefix_max_v6 = try(
+    local.bridge0_cfg.prefix_count_v6,
     local.bridge0_prefix_v6_mode == "decimal" ? 100 : 256
   )
+
+  # Effective count: the lesser of usable IPv4 hosts and the configured max.
+  bridge0_prefix_count_v6 = min(local.bridge0_usable_hosts, local.bridge0_prefix_max_v6)
 
   # Precomputed cidrsubnet indices per forwarding rule.
   # Hex mode:     index N → cidrsubnet index N  (identity).
@@ -1312,7 +1471,7 @@ resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v4" {
   for_each = local.enable_protocol_forwarding_v4 ? toset([for i in local.bridge0_host_indices : tostring(i)]) : toset([])
   #for_each = toset([])
 
-  name                  = "cml-pf-v4-${each.key}-${var.options.rand_id}"
+  name                  = "cml-pf-v4-${format("%03d", tonumber(each.key))}-${var.options.rand_id}"
   description           = "Protocol forwarding for ${cidrhost(local.bridge0_cidr, tonumber(each.key))}"
   region                = var.options.cfg.gcp.region
   ip_protocol           = "L3_DEFAULT"
@@ -1328,7 +1487,7 @@ resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v6" {
   count = local.enable_protocol_forwarding_v6 ? local.bridge0_prefix_count_v6 : 0
   #count = 0
 
-  name                  = "cml-pf-v6-${count.index}-${var.options.rand_id}"
+  name                  = "cml-pf-v6-${format("%03d", count.index)}-${var.options.rand_id}"
   description           = "Protocol forwarding for IPv6 ${cidrsubnet(local.bridge0_cidr_v6, 8, local.bridge0_prefix_v6_indices[count.index])}"
   region                = var.options.cfg.gcp.region
   ip_protocol           = "L3_DEFAULT"
