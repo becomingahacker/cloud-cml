@@ -369,6 +369,10 @@ gcp:
             # Labs
             - cidr: 10.0.0.0/10
               le: 32
+            - cidr: 192.168.0.0/16
+              le: 24
+            - cidr: 198.18.0.0/15
+              le: 24
           allow_out:
             # STO-ASIG-IPV4 (Offensive Summit temp)
             - cidr: 172.98.18.0/25
