@@ -844,6 +844,9 @@ locals {
       "while ! firewall-cmd --zone=cluster-internal --list-interfaces ; do sleep 5; done",
       "firewall-cmd --permanent --zone=public --add-service=bgp",
       "firewall-cmd --permanent --zone=public --add-service=vxlan",
+      # Allow BGP traffic to existing libvirt-to-host policy.  Shouldn't be
+      # needed, but just in case.
+      "firewall-cmd --permanent --policy=libvirt-to-host --add-service=bgp",
       # Put bridge0 interface in the DMZ and add the same services as the
       # libvirt zone. This interface is used for BAH labs.  We don't want
       # students logging in with SSH.
