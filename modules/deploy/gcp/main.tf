@@ -13,6 +13,7 @@ locals {
     "monitoring.googleapis.com",
     "logging.googleapis.com",
     "certificatemanager.googleapis.com",
+    "networkconnectivity.googleapis.com",
     "secretmanager.googleapis.com",
     "storage-component.googleapis.com",
     "storage.googleapis.com",
@@ -27,6 +28,9 @@ locals {
   cluster_vxlan_vnid           = 1
 
   cluster_bgp_as = var.options.cfg.gcp.bgp.local_as
+
+  cloud_router_enabled = try(var.options.cfg.gcp.cloud_router.enable, false)
+  cloud_router_asn     = try(var.options.cfg.gcp.cloud_router.asn, 64514)
 
   # Specified for ease of troubleshooting on the Controller.   IPv6 link local
   # address computes to fe80::1. Compute bridge MAC addresses are random. 
@@ -594,9 +598,44 @@ resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule
   }
 }
 
+resource "google_compute_region_network_firewall_policy_rule" "cml_firewall_rule_cloud_router_bgp" {
+  count           = local.cloud_router_enabled ? 1 : 0
+  action          = "allow"
+  description     = "Allow BGP from Cloud Router to CML controller"
+  direction       = "INGRESS"
+  disabled        = false
+  enable_logging  = false
+  firewall_policy = google_compute_region_network_firewall_policy.cml_firewall_policy.id
+  # HACK cmm - working around existing rules.  This should be 9.
+  priority        = var.options.cfg.gcp.network_firewall_rule_start_priority + 11
+  region          = var.options.cfg.gcp.region
+  rule_name       = "cml-fw-cloud-router-bgp-${var.options.rand_id}"
+
+  match {
+    src_ip_ranges = [
+      "${cidrhost(var.options.cfg.gcp.controller_subnet_cidr, 3)}/32",
+      "${cidrhost(var.options.cfg.gcp.controller_subnet_cidr, 4)}/32",
+    ]
+
+    dest_ip_ranges = [
+      google_compute_address.cml_controller_internal.address,
+    ]
+
+    layer4_configs {
+      ip_protocol = "tcp"
+      ports       = ["179"]
+    }
+  }
+
+  target_secure_tags {
+    name = google_tags_tag_value.cml_tag_cml_controller.id
+  }
+}
+
 resource "google_compute_address" "cml_controller_internal" {
   name         = "cml-controller-internal-${var.options.rand_id}"
   address_type = "INTERNAL"
+  address      = cidrhost(var.options.cfg.gcp.controller_subnet_cidr, 2)
   purpose      = "GCE_ENDPOINT"
   subnetwork   = google_compute_subnetwork.cml_subnet.id
 }
@@ -1505,4 +1544,95 @@ resource "google_compute_forwarding_rule" "cml_protocol_forwarding_rule_v6" {
       error_message = "bridge0.prefix_v6_mode must be \"hex\" or \"decimal\"."
     }
   }
+}
+
+# Cloud Router + NCC Router Appliance for BGP peering with CML FRRouting.
+# Routes learned from CML labs are injected into the VPC as custom dynamic
+# routes via the Cloud Router.  Two redundant interfaces (.3 and .4) peer
+# with the CML controller (.2) for HA.
+
+resource "google_network_connectivity_hub" "cml_ncc_hub" {
+  count       = local.cloud_router_enabled ? 1 : 0
+  name        = "cml-ncc-hub-${var.options.rand_id}"
+  description = "NCC hub for CML Cloud Router peering"
+  project     = var.options.cfg.gcp.project
+}
+
+resource "google_network_connectivity_spoke" "cml_router_appliance" {
+  count    = local.cloud_router_enabled ? 1 : 0
+  name     = "cml-router-appliance-${var.options.rand_id}"
+  location = var.options.cfg.gcp.region
+  hub      = google_network_connectivity_hub.cml_ncc_hub[0].id
+  project  = var.options.cfg.gcp.project
+
+  linked_router_appliance_instances {
+    instances {
+      virtual_machine = google_compute_instance.cml_control_instance.self_link
+      ip_address      = google_compute_address.cml_controller_internal.address
+    }
+    site_to_site_data_transfer = false
+  }
+}
+
+resource "google_compute_router" "cml_cloud_router" {
+  count   = local.cloud_router_enabled ? 1 : 0
+  name    = "cml-cloud-router-${var.options.rand_id}"
+  network = local.cml_network.id
+  region  = var.options.cfg.gcp.region
+  project = var.options.cfg.gcp.project
+
+  bgp {
+    asn            = local.cloud_router_asn
+    advertise_mode = "DEFAULT"
+  }
+}
+
+# Interface 1 (.4) created first so interface 0 can reference it as redundant.
+resource "google_compute_router_interface" "cml_cloud_router_intf_1" {
+  count              = local.cloud_router_enabled ? 1 : 0
+  name               = "cml-cr-intf-1-${var.options.rand_id}"
+  router             = google_compute_router.cml_cloud_router[0].name
+  region             = var.options.cfg.gcp.region
+  project            = var.options.cfg.gcp.project
+  subnetwork         = google_compute_subnetwork.cml_subnet.self_link
+  private_ip_address = cidrhost(var.options.cfg.gcp.controller_subnet_cidr, 3)
+}
+
+resource "google_compute_router_interface" "cml_cloud_router_intf_0" {
+  count               = local.cloud_router_enabled ? 1 : 0
+  name                = "cml-cr-intf-0-${var.options.rand_id}"
+  router              = google_compute_router.cml_cloud_router[0].name
+  region              = var.options.cfg.gcp.region
+  project             = var.options.cfg.gcp.project
+  subnetwork          = google_compute_subnetwork.cml_subnet.self_link
+  private_ip_address  = cidrhost(var.options.cfg.gcp.controller_subnet_cidr, 4)
+  redundant_interface = google_compute_router_interface.cml_cloud_router_intf_1[0].name
+}
+
+resource "google_compute_router_peer" "cml_cloud_router_peer_0" {
+  count                     = local.cloud_router_enabled ? 1 : 0
+  name                      = "cml-cr-peer-0-${var.options.rand_id}"
+  router                    = google_compute_router.cml_cloud_router[0].name
+  region                    = var.options.cfg.gcp.region
+  project                   = var.options.cfg.gcp.project
+  interface                 = google_compute_router_interface.cml_cloud_router_intf_0[0].name
+  peer_ip_address           = google_compute_address.cml_controller_internal.address
+  peer_asn                  = local.cluster_bgp_as
+  router_appliance_instance = google_compute_instance.cml_control_instance.self_link
+
+  depends_on = [google_network_connectivity_spoke.cml_router_appliance]
+}
+
+resource "google_compute_router_peer" "cml_cloud_router_peer_1" {
+  count                     = local.cloud_router_enabled ? 1 : 0
+  name                      = "cml-cr-peer-1-${var.options.rand_id}"
+  router                    = google_compute_router.cml_cloud_router[0].name
+  region                    = var.options.cfg.gcp.region
+  project                   = var.options.cfg.gcp.project
+  interface                 = google_compute_router_interface.cml_cloud_router_intf_1[0].name
+  peer_ip_address           = google_compute_address.cml_controller_internal.address
+  peer_asn                  = local.cluster_bgp_as
+  router_appliance_instance = google_compute_instance.cml_control_instance.self_link
+
+  depends_on = [google_network_connectivity_spoke.cml_router_appliance]
 }

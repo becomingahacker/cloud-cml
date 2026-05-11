@@ -587,6 +587,14 @@ locals {
           !
           %{endif}
           %{endfor}
+          %{if local.cloud_router_enabled}
+          !
+          route-map CLOUD_ROUTER_IN permit 10
+          exit
+          !
+          route-map CLOUD_ROUTER_OUT permit 10
+          exit
+          %{endif}
           !
           router bgp ${local.cluster_bgp_as}
            bgp router-id ${google_compute_address.cml_controller_internal.address}
@@ -605,6 +613,12 @@ locals {
            bgp listen range ${cidrsubnet(local.bridge0_cidr_v6, 8, 0)} peer-group CML_${network_name}_V6
            %{endif}
            %{endfor}
+           %{if local.cloud_router_enabled}
+           neighbor CLOUD_ROUTER peer-group
+           neighbor CLOUD_ROUTER remote-as ${local.cloud_router_asn}
+           neighbor ${cidrhost(var.options.cfg.gcp.controller_subnet_cidr, 3)} peer-group CLOUD_ROUTER
+           neighbor ${cidrhost(var.options.cfg.gcp.controller_subnet_cidr, 4)} peer-group CLOUD_ROUTER
+           %{endif}
            !
            address-family l2vpn evpn
             neighbor VTEP activate
@@ -630,6 +644,11 @@ locals {
             neighbor CML_${network_name}_V6 route-map CML_${network_name}_OUT out
            %{endif}
            %{endfor}
+           %{if local.cloud_router_enabled}
+            neighbor CLOUD_ROUTER activate
+            neighbor CLOUD_ROUTER route-map CLOUD_ROUTER_IN in
+            neighbor CLOUD_ROUTER route-map CLOUD_ROUTER_OUT out
+           %{endif}
             neighbor VTEP activate
             neighbor VTEP route-reflector-client
             neighbor VTEP next-hop-self

@@ -276,6 +276,15 @@ gcp:
   #   --audiences=344691804483-6qe8toekh0trb8a3hipistrueq8drah8.apps.googleusercontent.com )"
   # ```
 
+  # Cloud Router configuration for BGP peering with CML FRRouting.
+  # Enables GCP Cloud Router to learn internal routes from CML labs and inject
+  # them into the VPC as custom dynamic routes.  Two redundant Cloud Router
+  # interfaces (.3 and .4) peer with the CML controller (.2) for HA.
+  # Requires Network Connectivity Center (NCC) Router Appliance.
+  cloud_router:
+    enable: true
+    asn: 64514
+
   # BGP configuration.  Used for BGP EVPN and BGP peering with custom external 
   # networks.
   bgp:
@@ -335,7 +344,7 @@ gcp:
       # Maximum number of IPv6 /56 forwarding rules to create.  When unset,
       # defaults to the mode limit (100 for decimal, 256 for hex) or the
       # number of IPv4 usable hosts, whichever is smaller.
-      prefix_count_v6: 32
+      prefix_count_v6: 33
       # "first" or "last" for the IPv6 gateway address on bridge0.  Only the last
       # 16 bits are used.  "last" corresponds to e.g. 2602:80a:f006::ffff
       # 2602:80a:f006::8000 to 2602:80a:f006::fffe are reserved for DHCPv6.
