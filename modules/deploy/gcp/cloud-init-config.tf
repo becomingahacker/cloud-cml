@@ -476,7 +476,7 @@ locals {
         content     = yamlencode(local.cml_config_controller)
       },
       {
-        path        = "/etc/sysctl.d/60-cml-ip-forward.conf"
+        path        = "/etc/sysctl.d/70-cml-ip-forward.conf"
         owner       = "root:root"
         permissions = "0644"
         content     = <<-EOF
