@@ -789,6 +789,9 @@ locals {
   cloud_init_config_runcmd_template = [
     "set -x",
 
+    # Let rsyslog write to /dev/console (owned by root:tty)
+    "usermod -aG tty syslog",
+
     # Disable Avahi, which may conflict with systemd-resolved for mDNS
     "systemctl disable --now avahi-daemon.socket",
     "systemctl disable --now avahi-daemon.service",
