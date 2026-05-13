@@ -10,6 +10,8 @@ output "cml2info" {
     "address_v6" : module.deploy.public_ip_v6
     "del" : nonsensitive("ssh -p1122 ${local.cfg.secrets.sys.username}@${module.deploy.public_ip} /provision/del.sh")
     "url" : "https://${module.deploy.public_fqdn}"
+    "vpc_network" : try(module.deploy.module.vpc_network, null)
+    "bridge0_prefixes" : try(module.deploy.module.bridge0_prefixes, null)
     #"version" : module.ready.state.version
   }
 }

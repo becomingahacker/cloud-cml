@@ -42,3 +42,16 @@ output "iap_programmatic_client_id" {
   description = "IAP programmatic client ID for this HTTPS backend; use as audience when obtaining ID tokens for programmatic access."
   value       = var.options.cfg.gcp.iap_programmatic_oauth_client_id
 }
+
+output "vpc_network" {
+  description = "The VPC network name used by CML"
+  value       = local.cml_network.name
+}
+
+output "bridge0_prefixes" {
+  description = "bridge0 external connection IPv4 and IPv6 prefixes"
+  value = {
+    ipv4 = local.bridge0_cidr
+    ipv6 = local.bridge0_cidr_v6
+  }
+}
