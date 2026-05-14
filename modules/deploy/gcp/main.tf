@@ -1266,47 +1266,9 @@ resource "google_compute_backend_service" "lab_guide" {
   enable_cdn            = false
   security_policy       = google_compute_security_policy.cml_security_policy.id
 
-  iap {
-    enabled = local.cml_iap_enabled
-  }
-
   depends_on = [
     google_compute_global_network_endpoint.lab_guide,
   ]
-}
-
-resource "google_iap_web_backend_service_iam_member" "lab_guide_iap_https_access" {
-  for_each = local.cml_iap_enabled ? {
-    for pair in setproduct(keys(local.cml_lab_guides_map), local.cml_iap_https_access_groups) :
-    "${pair[0]}/${pair[1]}" => { guide = pair[0], member = pair[1] }
-  } : {}
-
-  web_backend_service = google_compute_backend_service.lab_guide[each.value.guide].name
-  role                = "roles/iap.httpsResourceAccessor"
-  member              = each.value.member
-}
-
-resource "google_iap_settings" "lab_guide" {
-  for_each = local.cml_iap_enabled && length(local.cml_load_balancer_fqdns) > 0 ? local.cml_lab_guides_map : {}
-
-  name = "projects/${data.google_project.cml_project.number}/iap_web/compute/services/${google_compute_backend_service.lab_guide[each.key].name}"
-
-  access_settings {
-    allowed_domains_settings {
-      enable  = true
-      domains = [for h in local.cml_load_balancer_fqdns : lower(h)]
-    }
-    oauth_settings {
-      programmatic_clients = try([var.options.cfg.gcp.iap_programmatic_oauth_client_id], [])
-    }
-  }
-
-  application_settings {
-    attribute_propagation_settings {
-      enable             = false
-      output_credentials = []
-    }
-  }
 }
 
 resource "google_compute_url_map" "cml_lb_http_redirect" {
