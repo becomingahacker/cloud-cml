@@ -1266,6 +1266,10 @@ resource "google_compute_backend_service" "lab_guide" {
   enable_cdn            = false
   security_policy       = google_compute_security_policy.cml_security_policy.id
 
+  iap {
+    enabled = false
+  }
+
   depends_on = [
     google_compute_global_network_endpoint.lab_guide,
   ]
