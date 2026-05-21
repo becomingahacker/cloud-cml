@@ -792,6 +792,10 @@ locals {
     # Let rsyslog write to /dev/console (owned by root:tty)
     "usermod -aG tty syslog",
 
+    # Disable automatic daily apt update/upgrade
+    "systemctl disable --now apt-daily.timer",
+    "systemctl disable --now apt-daily-upgrade.timer",
+
     # Disable Avahi, which may conflict with systemd-resolved for mDNS
     "systemctl disable --now avahi-daemon.socket",
     "systemctl disable --now avahi-daemon.service",
