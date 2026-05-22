@@ -12,6 +12,7 @@ output "cml2info" {
     "url" : "https://${module.deploy.public_fqdn}"
     "vpc_network" : try(module.deploy.module.vpc_network, null)
     "bridge0_prefixes" : try(module.deploy.module.bridge0_prefixes, null)
+    "backend_controller_name" : try(module.deploy.module.backend_controller_name, null)
     #"version" : module.ready.state.version
   }
 }

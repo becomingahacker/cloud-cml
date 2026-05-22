@@ -55,3 +55,8 @@ output "bridge0_prefixes" {
     ipv6 = local.bridge0_cidr_v6
   }
 }
+
+output "backend_controller_name" {
+  description = "Name of the CML backend controller backend service"
+  value       = google_compute_backend_service.cml_backend_controller.name
+}
