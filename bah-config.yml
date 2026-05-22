@@ -3,7 +3,7 @@
 # All rights reserved.
 #
 
-# Becoming a Hacker CML configuration for US East 1 (South Carolina)
+# Becoming a Hacker CML configuration for US West 4 (Las Vegas)
 
 # at this time, "aws", "azure", and "gcp" are defined targets
 # make sure that you ran the prepare.sh / prepare.bat script!
@@ -63,11 +63,11 @@ gcp:
   # ```shell
   # gcloud compute instances list --project=gcp-asigbahgcp-nprd-47930
   # NAME              ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP                    STATUS
-  # cml-controller    us-east1-b  n2-standard-4               10.64.1.2    172.98.19.192                  RUNNING
+  # cml-controller    us-west4-a  n2-standard-4               10.64.1.2    172.98.19.192                  RUNNING
   #                                                                        2602:80a:f004:301:0:0:0:0/96
-  # cml-compute-p08x  us-east1-d  n2-highmem-32               10.64.1.208  2602:80a:f004:301:0:4e:0:0/96  RUNNING
+  # cml-compute-p08x  us-west4-b  n2-highmem-32               10.64.1.208  2602:80a:f004:301:0:4e:0:0/96  RUNNING
   # 
-  # gcloud compute ssh cml-controller --project=gcp-asigbahgcp-nprd-47930 --zone=us-east1-b --tunnel-through-iap --ssh-flag='-p1122'
+  # gcloud compute ssh cml-controller --project=gcp-asigbahgcp-nprd-47930 --zone=us-west4-a --tunnel-through-iap --ssh-flag='-p1122'
   # ...
   # Welcome to Ubuntu 24.04.4 LTS (GNU/Linux 6.17.0-1009-gcp x86_64)
   # ...
@@ -80,12 +80,12 @@ gcp:
   ssh_keys:
 
   # Google Cloud Platform project, region, and availablility zone.  Required.
-  # Note that the zone 'us-east1-a' doesn't exist, or isn't available to you.
+  # Note that not all zones may be available to you in this region.
   # This zone is only used for controller, and the compute nodes will be spread
   # across available zones in the region. 
   project: gcp-asigbahgcp-nprd-47930
-  region: us-east1
-  zone: us-east1-b
+  region: us-west4
+  zone: us-west4-a
 
   # CML service account ID to use.  If left empty, a new service account will be
   # created using 'cml-service-account-' and a random suffix.  Otherwise
@@ -126,7 +126,7 @@ gcp:
   network_mtu: 8896
 
   # IP collection.  Used to set the BYOIPv6 for the controller subnet.
-  subnet_ip_collection: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-net-2602-80a-f004-300-56
+  subnet_ip_collection: regions/us-west4/publicDelegatedPrefixes/asig-bah-prod-us-west4-net-2602-80a-f005-300-56
 
   # CML firewall policy name.  Leave empty to use an existing firewall policy
   # associated with the network indicated above.  VPC firewall rules are not
@@ -318,7 +318,7 @@ gcp:
       # to start at the middle, and assumes /24 (or /112).  This is to make 
       # room for static IPs at the beginning of the range.  If using BYOIPv4,
       # you must have the addresses available for the subnet.
-      # Offensive Summit temp (us-east1): /25 for ~125 pod /32s + controller space.
+      # Offensive Summit temp (us-west4): /25 for ~125 pod /32s + controller space.
       cidr: 172.98.18.0/25
       # "first" or "last" for the gateway address.
       gateway: last
@@ -349,8 +349,8 @@ gcp:
       # IP collection for BYOIPv6 used with the network load balancer for
       # protocol forwarding.  Must match the public delegated prefix name in GCP
       # for the NLB IPv6 pool (verify with gcloud compute public-delegated-prefixes list).
-      # Offensive Summit temp: /48 covering 256 x /56 pod blocks (us-east1).
-      load_balancer_ip_collection_v6: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-nlb-2602-80a-f006-48
+      # Offensive Summit temp: /48 covering 256 x /56 pod blocks (us-west4).
+      load_balancer_ip_collection_v6: regions/us-west4/publicDelegatedPrefixes/asig-bah-prod-us-west4-nlb-2602-80a-f006-48
       # IPv6 CIDR block. Used for protocol forwarding.  The first /56 is used
       # for the CML controller.  Subsequent /56s are used for pods.  The number
       # of /56s forwarded is equal to the number of IPv4 addresses available for
@@ -395,7 +395,7 @@ gcp:
           # scope = gcp.region and scope global). List only additional prefixes here.
           # https://github.com/femueller/cloud-ip-ranges
           allow_in:
-            # STO-ASIG-IPV4 (Offensive Summit temp, us-east1 BYOIPv4 /25)
+            # STO-ASIG-IPV4 (Offensive Summit temp, us-west4 BYOIPv4 /25)
             - cidr: 172.98.18.0/25
               le: 32
             # Labs
@@ -419,7 +419,7 @@ gcp:
           # needs Internet access
           originate_default: true
           allow_in:
-            # Offensive Summit temp (us-east1 BYOIPv6 /48; /56 blocks and more-specifics)
+            # Offensive Summit temp (us-west4 BYOIPv6 /48; /56 blocks and more-specifics)
             - cidr: 2602:80a:f006::/48
               ge: 56
           allow_out:

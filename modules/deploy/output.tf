@@ -44,6 +44,6 @@ output "module" {
     module.azure[0] :
     (var.cfg.target == "gcp") ?
     module.gcp[0] :
-    tomap({})
+    null
   )
 }
