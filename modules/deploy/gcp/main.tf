@@ -1048,6 +1048,104 @@ resource "google_dns_record_set" "cml_controller_dns_v6" {
   ]
 }
 
+resource "google_dns_record_set" "cml_controller_intf_dns" {
+  name = "${var.options.cfg.gcp.controller_primary_interface_name}.${var.options.cfg.common.controller_hostname}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  type = "A"
+  ttl  = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    data.google_compute_address.cml_controller.address
+  ]
+}
+
+resource "google_dns_record_set" "cml_controller_bridge0_dns" {
+  count = local.bridge0_cidr != null ? 1 : 0
+
+  name = "bridge0.${var.options.cfg.common.controller_hostname}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  type = "A"
+  ttl  = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    cidrhost(local.bridge0_cidr, try(local.bridge0_cfg.gateway, "last") == "last" ? -2 : 1)
+  ]
+}
+
+# Reverse DNS zone for bridge0 IPv4 PTR records (may be in a different project).
+# Also used for controller interface PTR records since the controller's
+# external IP is in the same bridge0 CIDR range.
+data "google_dns_managed_zone" "cml_reverse_zone_v4" {
+  count   = local.enable_bridge0_reverse_dns ? 1 : 0
+  name    = local.bridge0_cfg.reverse_dns_zone_name
+  project = try(local.bridge0_cfg.reverse_dns_zone_project, var.options.cfg.gcp.project)
+}
+
+# Forward A records: pod{N}.{dns_zone} → bridge0 IPv4 for each prefix_count_v4 pod.
+resource "google_dns_record_set" "cml_pod_dns" {
+  for_each = local.enable_bridge0_reverse_dns ? toset([for i in range(1, 1 + local.bridge0_prefix_count_v4) : tostring(i)]) : toset([])
+
+  name = "pod${each.key}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  type = "A"
+  ttl  = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    cidrhost(local.bridge0_cidr, tonumber(each.key))
+  ]
+}
+
+# Reverse PTR records: {last_octet}.{reverse_zone} → pod{N}.{dns_zone}
+resource "google_dns_record_set" "cml_pod_reverse_dns" {
+  for_each = local.enable_bridge0_reverse_dns ? toset([for i in range(1, 1 + local.bridge0_prefix_count_v4) : tostring(i)]) : toset([])
+
+  name = "${split(".", cidrhost(local.bridge0_cidr, tonumber(each.key)))[3]}.${data.google_dns_managed_zone.cml_reverse_zone_v4[0].dns_name}"
+  type = "PTR"
+  ttl  = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_reverse_zone_v4[0].name
+  project      = try(local.bridge0_cfg.reverse_dns_zone_project, var.options.cfg.gcp.project)
+
+  rrdatas = [
+    "pod${each.key}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  ]
+}
+
+# Reverse PTR for controller primary interface (ens5).
+resource "google_dns_record_set" "cml_controller_intf_reverse_dns" {
+  count = local.enable_bridge0_reverse_dns ? 1 : 0
+
+  name = "${split(".", data.google_compute_address.cml_controller.address)[3]}.${data.google_dns_managed_zone.cml_reverse_zone_v4[0].dns_name}"
+  type = "PTR"
+  ttl  = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_reverse_zone_v4[0].name
+  project      = try(local.bridge0_cfg.reverse_dns_zone_project, var.options.cfg.gcp.project)
+
+  rrdatas = [
+    "${var.options.cfg.gcp.controller_primary_interface_name}.${var.options.cfg.common.controller_hostname}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  ]
+}
+
+# Reverse PTR for controller bridge0 interface.
+resource "google_dns_record_set" "cml_controller_bridge0_reverse_dns" {
+  count = local.enable_bridge0_reverse_dns ? 1 : 0
+
+  name = "${split(".", cidrhost(local.bridge0_cidr, try(local.bridge0_cfg.gateway, "last") == "last" ? -2 : 1))[3]}.${data.google_dns_managed_zone.cml_reverse_zone_v4[0].dns_name}"
+  type = "PTR"
+  ttl  = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_reverse_zone_v4[0].name
+  project      = try(local.bridge0_cfg.reverse_dns_zone_project, var.options.cfg.gcp.project)
+
+  rrdatas = [
+    "bridge0.${var.options.cfg.common.controller_hostname}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  ]
+}
+
 resource "google_certificate_manager_dns_authorization" "cml_dns_auth" {
   for_each = toset(var.options.cfg.gcp.load_balancer_fqdns)
   name     = "cml-dns-auth-${replace(each.key, ".", "-")}"
@@ -1427,8 +1525,28 @@ locals {
   bridge0_total_hosts  = local.bridge0_cidr != null ? pow(2, 32 - local.bridge0_prefix_len) : 0
   bridge0_usable_hosts = local.bridge0_total_hosts > 2 ? local.bridge0_total_hosts - 2 : 0
 
-  # Generate list of usable host indices (1 to total-2, excluding network and broadcast)
-  bridge0_host_indices = local.bridge0_usable_hosts > 0 ? range(1, local.bridge0_total_hosts - 1) : []
+  # Maximum IPv4 forwarding rules from config, falling back to all usable hosts.
+  bridge0_prefix_max_v4 = try(local.bridge0_cfg.prefix_count_v4, local.bridge0_usable_hosts)
+
+  # Effective IPv4 count: the lesser of usable hosts and the configured max.
+  bridge0_prefix_count_v4 = min(local.bridge0_usable_hosts, local.bridge0_prefix_max_v4)
+
+  # Additional forwarding rules at the end of the IP space (before broadcast).
+  # If set to 1, includes only the last usable host (gateway when gateway=last).
+  # If set to 2, includes the last two usable hosts, etc.
+  bridge0_prefix_count_v4_additional_last = min(
+    try(local.bridge0_cfg.prefix_count_v4_additional_last, 0),
+    local.bridge0_usable_hosts
+  )
+
+  # Host indices from the front (1, 2, 3, …) and the back (…, 125, 126).
+  bridge0_host_indices = distinct(concat(
+    local.bridge0_prefix_count_v4 > 0 ? range(1, 1 + local.bridge0_prefix_count_v4) : [],
+    local.bridge0_prefix_count_v4_additional_last > 0 ? range(
+      local.bridge0_total_hosts - 1 - local.bridge0_prefix_count_v4_additional_last,
+      local.bridge0_total_hosts - 1
+    ) : []
+  ))
 
   # IPv6 configuration
   bridge0_cidr_v6                        = try(local.bridge0_cfg.cidr_v6, null)
@@ -1462,6 +1580,9 @@ locals {
   # Enable protocol forwarding only if target instance is enabled and bridge0 has a CIDR
   enable_protocol_forwarding_v4 = try(var.options.cfg.gcp.target_instance.enable, false) && local.bridge0_cidr != null
   enable_protocol_forwarding_v6 = try(var.options.cfg.gcp.target_instance.enable, false) && local.bridge0_cidr_v6 != null && local.bridge0_load_balancer_ip_collection_v6 != null
+
+  # Enable reverse DNS when bridge0 has a CIDR, prefix_count_v4 > 0, and a reverse zone is configured.
+  enable_bridge0_reverse_dns = local.bridge0_cidr != null && local.bridge0_prefix_count_v4 > 0 && try(local.bridge0_cfg.reverse_dns_zone_name, null) != null
 }
 
 ## Fracture the dependency on the target instance

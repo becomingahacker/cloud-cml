@@ -322,6 +322,29 @@ gcp:
       cidr: 172.98.18.0/25
       # "first" or "last" for the gateway address.
       gateway: last
+      # Maximum number of IPv4 forwarding rules to create from the start of
+      # the CIDR.  When unset, defaults to the number of usable hosts in the
+      # CIDR (e.g. /25 → 126).  Set this to limit the number of GCP protocol
+      # forwarding rules created, for example to stay within quota or to match
+      # the number of pods.
+      prefix_count_v4: 31
+      # Additional forwarding rules at the end of the IP space (before the
+      # broadcast address).  If set to 1, includes only the gateway IP
+      # (e.g. 172.98.18.126 when gateway is "last").  If set to 2, includes
+      # the gateway and one more (e.g. 172.98.18.126 and 172.98.18.125), etc.
+      # Useful for forwarding the gateway and nearby management addresses when
+      # prefix_count_v4 doesn't reach the end of the range.  Any overlap with
+      # prefix_count_v4 is deduplicated.
+      prefix_count_v4_additional_last: 6
+
+      # Reverse DNS zone for bridge0 IPv4 forwarding rule PTR records.
+      # The zone must be a public DNS managed zone covering the bridge0 CIDR's
+      # reverse lookup space (e.g. 18.98.172.in-addr.arpa for 172.98.18.0/25).
+      # If the zone is in a different GCP project, set reverse_dns_zone_project.
+      # When set, forward A records (pod{N}.{dns_zone}) and reverse PTR records
+      # are created for each prefix_count_v4 IP.
+      reverse_dns_zone_name: r18-98-172-in-addr-arpa
+      reverse_dns_zone_project: gcp-asigaurynbyoipg-nprd-33190
 
       # IP collection for BYOIPv6 used with the network load balancer for
       # protocol forwarding.  Must match the public delegated prefix name in GCP
