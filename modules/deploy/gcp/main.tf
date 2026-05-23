@@ -1074,6 +1074,20 @@ resource "google_dns_record_set" "cml_controller_bridge0_dns" {
   ]
 }
 
+resource "google_dns_record_set" "cml_controller_bridge0_dns_v6" {
+  count = local.bridge0_cidr_v6 != null ? 1 : 0
+
+  name = "bridge0.${var.options.cfg.common.controller_hostname}.${data.google_dns_managed_zone.cml_zone.dns_name}"
+  type = "AAAA"
+  ttl  = 300
+
+  managed_zone = data.google_dns_managed_zone.cml_zone.name
+
+  rrdatas = [
+    cidrhost(local.bridge0_cidr_v6, try(local.bridge0_cfg.gateway_v6, "last") == "last" ? 65535 : 1)
+  ]
+}
+
 # Reverse DNS zone for bridge0 IPv4 PTR records (may be in a different project).
 # Also used for controller interface PTR records since the controller's
 # external IP is in the same bridge0 CIDR range.

@@ -13,12 +13,14 @@ output "cml2info" {
     "vpc_network" : try(module.deploy.module.vpc_network, null)
     "bridge0_prefixes" : try(module.deploy.module.bridge0_prefixes, null)
     "backend_controller_name" : try(module.deploy.module.backend_controller_name, null)
+    "firewall_policy_name" : try(module.deploy.module.firewall_policy_name, null)
+    "secure_tags" : try(module.deploy.module.secure_tags, null)
     #"version" : module.ready.state.version
   }
 }
 
 output "deploy" {
-  value = module.deploy.module
+  value     = module.deploy.module
   sensitive = true
 }
 

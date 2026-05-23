@@ -24,6 +24,19 @@ output "firewall_policy_id" {
   value = google_compute_region_network_firewall_policy.cml_firewall_policy.id
 }
 
+output "firewall_policy_name" {
+  description = "Name of the regional network firewall policy"
+  value       = google_compute_region_network_firewall_policy.cml_firewall_policy.name
+}
+
+output "secure_tags" {
+  description = "Secure tag values for CML instances"
+  value = {
+    controller = google_tags_tag_value.cml_tag_cml_controller.id
+    compute    = google_tags_tag_value.cml_tag_cml_compute.id
+  }
+}
+
 output "bgp_ipv6_peer" {
   # HACK cmm - needs to be a list
   value = cidrhost(cidrsubnet("${google_compute_address.cml_controller_v6.address}/${google_compute_address.cml_controller_v6.prefix_length}", 16, 1), var.options.cfg.gcp.cml_custom_external_connections.bridge0.gateway == "last" ? 65535 : 1)
