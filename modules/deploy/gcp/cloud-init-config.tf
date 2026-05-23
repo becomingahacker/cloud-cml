@@ -694,6 +694,86 @@ locals {
           %{endfor}
         EOF
       },
+      {
+        path        = "/provision/create-local-bridges.sh"
+        owner       = "root:root"
+        permissions = "0755"
+        content     = <<-EOF
+          #!/usr/bin/env bash
+          #
+          # Creates libvirt bridge networks for all 31 pods (two bridges per pod).
+          # Replaces the 62 static XML files that were previously checked in.
+          #
+          # Each pod N gets:
+          #   localN01  -- bridge localN01, MAC 02:00:00:00:<pod_hex>:01
+          #   localN02  -- bridge localN02, MAC 02:00:00:00:<pod_hex>:02
+          #
+          # Usage:
+          #   sudo ./create-local-bridges.sh          # create all 31 pods
+          #   sudo ./create-local-bridges.sh 1 5      # create pods 1-5 only
+
+          set -euo pipefail
+
+          MIN_POD=$${1:-1}
+          MAX_POD=$${2:-31}
+
+          for pod in $(seq "$MIN_POD" "$MAX_POD"); do
+            pod_hex=$(printf '%02x' "$pod")
+
+            for suffix in 01 02; do
+              name="local$${pod}$${suffix}"
+
+              if virsh net-info "$name" &>/dev/null; then
+                echo "  [skip] $name already exists"
+                continue
+              fi
+
+              xml="<network>
+            <name>$${name}</name>
+            <bridge name='$${name}' stp='off' delay='0'/>
+            <mtu size=\"9000\"/>
+            <mac address=\"02:00:00:00:$${pod_hex}:$${suffix}\"/>
+          </network>"
+
+              echo "  [create] $name  (mac 02:00:00:00:$${pod_hex}:$${suffix})"
+              echo "$xml" | virsh net-create /dev/stdin
+            done
+          done
+
+          echo "Done. Created bridges for pods $${MIN_POD}-$${MAX_POD}."
+        EOF
+      },
+      {
+        path        = "/provision/tag-local-bridges.sh"
+        owner       = "root:root"
+        permissions = "0755"
+        content     = <<-EOF
+          #!/usr/bin/env bash
+
+          set -euo pipefail
+
+          echo "Fetching external connectors..."
+          CONNECTORS=$(curl -H "Authorization: Bearer $TOKEN" -sk -X GET "https://localhost/api/v0/system/external_connectors" | jq -r '.[] | select(.device_name | startswith("local")) | .id')
+
+          for CONNECTOR_ID in $CONNECTORS; do
+            LABEL=$(curl -sk -X GET "https://localhost/api/v0/system/external_connectors/$${CONNECTOR_ID}" \
+              -H "Authorization: Bearer $${TOKEN}" | jq -r .label)
+            echo "  Tagging $${CONNECTOR_ID} with [\"$${LABEL}\"]..."
+            RESULT=$(curl -sk -X PATCH "https://localhost/api/v0/system/external_connectors/$${CONNECTOR_ID}" \
+              -H "Authorization: Bearer $${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"tags\": [\"$${LABEL}\"]}")
+            echo $RESULT
+            RESULT=$(curl -sk -X PATCH "https://localhost/api/v0/system/external_connectors/$${CONNECTOR_ID}" \
+              -H "Authorization: Bearer $${TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"snooped\": false}")
+            echo $RESULT
+          done
+
+          echo "Done."
+        EOF
+      },
     ],
     # Only present on controller
     local.cloud_init_config_libvirt_networks

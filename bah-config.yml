@@ -97,7 +97,7 @@ gcp:
   # cml2 packages and refplat images.
   bucket: bah-machine-images
   # Google Cloud Storage bucket for /var/lib/libvirt/images.  Required.
-  libvirt_images_bucket: bah-libvirt-images-ue1
+  libvirt_images_bucket: bah-libvirt-images-uw4
 
   # Create a new network.  If set to 'false', the network indicated by
   # 'network_name' is used.
