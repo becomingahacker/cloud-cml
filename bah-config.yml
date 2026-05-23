@@ -367,7 +367,7 @@ gcp:
       # Maximum number of IPv6 /56 forwarding rules to create.  When unset,
       # defaults to the mode limit (100 for decimal, 256 for hex) or the
       # number of IPv4 usable hosts, whichever is smaller.
-      prefix_count_v6: 33
+      prefix_count_v6: 32
       # "first" or "last" for the IPv6 gateway address on bridge0.  Only the last
       # 16 bits are used.  "last" corresponds to e.g. 2602:80a:f006::ffff
       # 2602:80a:f006::8000 to 2602:80a:f006::fffe are reserved for DHCPv6.
