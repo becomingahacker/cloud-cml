@@ -983,23 +983,10 @@ locals {
       "firewall-cmd --permanent --policy=dmz-to-public --add-rich-rule='rule family=\"ipv6\" destination address=\"fd20:ce::254\" port port=\"443\" protocol=\"tcp\" reject'",
       "firewall-cmd --permanent --policy=dmz-to-public --add-rich-rule='rule family=\"ipv6\" destination address=\"fd20:ce::254\" port port=\"8080-8083\" protocol=\"tcp\" reject'",
       "firewall-cmd --permanent --policy=dmz-to-public --set-target=ACCEPT",
-      "firewall-cmd --permanent --new-policy=public-to-dmz-ssh",
-      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-ingress-zone=public",
-      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-egress-zone=dmz",
-      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-rich-rule='rule family=\"ipv4\" destination address=\"${local.bridge0_cidr}\" service name=\"ssh\" accept'",
-      "firewall-cmd --permanent --policy=public-to-dmz-ssh --add-rich-rule='rule family=\"ipv6\" destination address=\"${local.bridge0_cidr_v6}\" service name=\"ssh\" accept'",
-      # Lower firewalld policy priority value = runs first. SSH must precede pub-to-dmz-icmp (REJECT default).
-      "firewall-cmd --permanent --policy=public-to-dmz-ssh --set-priority=-100",
-      # Non-SSH public→dmz passes to the next policy (ICMP allow + REJECT rest).
-      "firewall-cmd --permanent --policy=public-to-dmz-ssh --set-target=CONTINUE",
-      # Public → dmz (labs on bridge0): ICMP after SSH policy; REJECT only what SSH did not already accept.
-      "firewall-cmd --permanent --new-policy=pub-to-dmz-icmp",
-      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --add-ingress-zone=public",
-      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --add-egress-zone=dmz",
-      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --set-priority=100",
-      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --add-rich-rule='rule family=\"ipv4\" protocol value=\"icmp\" accept'",
-      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --add-rich-rule='rule family=\"ipv6\" protocol value=\"ipv6-icmp\" accept'",
-      "firewall-cmd --permanent --policy=pub-to-dmz-icmp --set-target=REJECT",
+      "firewall-cmd --permanent --new-policy=public-to-dmz",
+      "firewall-cmd --permanent --policy=public-to-dmz --add-ingress-zone=public",
+      "firewall-cmd --permanent --policy=public-to-dmz --add-egress-zone=dmz",
+      "firewall-cmd --permanent --policy=public-to-dmz --set-target=ACCEPT",
       "firewall-cmd --reload",
     ]
   )
