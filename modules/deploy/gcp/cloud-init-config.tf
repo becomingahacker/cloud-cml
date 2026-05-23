@@ -166,6 +166,7 @@ locals {
         owner       = "root:root"
         permissions = "0644"
         content = yamlencode({
+          implicit-dirs = true
           file-cache = {
             max-size-mb               = -1
             cache-file-for-range-read = false
