@@ -468,7 +468,7 @@ gcp:
   # an instance group with zero instances for easy scale-up of reliable machines.
   #compute_on_demand_machine_type: n2-standard-4
   #compute_on_demand_machine_type: n2-highmem-4
-  compute_on_demand_machine_type: n2-highmem-32
+  compute_on_demand_machine_type: c3-standard-176-lssd
 
   # Spot compute machine type.  Required if compute_machine_provisioning_model
   # is 'spot'.  If still specified and compute_machine_provisioning_model
@@ -520,7 +520,7 @@ cluster:
   # No longer used, see the secret manager section below
   #secret: your-secret-password
   allow_vms_on_controller: false
-  number_of_compute_nodes: 3
+  number_of_compute_nodes: 1
   compute_hostname_prefix: cml-compute
   compute_disk_size: 128
 

@@ -75,10 +75,9 @@ locals {
   }
 
   cml_config_controller = merge(local.cml_config_template, {
-    hostname          = local.controller_hostname
-    primary_interface = var.options.cfg.gcp.compute_primary_interface_name
-    is_controller     = true
-    is_compute        = !var.options.cfg.cluster.enable_cluster || var.options.cfg.cluster.allow_vms_on_controller
+    hostname      = local.controller_hostname
+    is_controller = true
+    is_compute    = !var.options.cfg.cluster.enable_cluster || var.options.cfg.cluster.allow_vms_on_controller
   })
 
   cml_config_compute = merge(local.cml_config_template, {
@@ -282,6 +281,10 @@ resource "google_compute_subnetwork" "cml_subnet" {
   #  metadata             = "INCLUDE_ALL_METADATA"
   #  metadata_fields      = []
   #}
+
+  lifecycle {
+    ignore_changes = [ip_collection]
+  }
 }
 
 # Private Service Connect
@@ -799,8 +802,19 @@ resource "google_compute_network_endpoint" "cml_controller_endpoint" {
 }
 
 data "google_compute_machine_types" "cml_compute_on_demand" {
-  filter = "name = \"${var.options.cfg.gcp.compute_on_demand_machine_type}\""
-  zone   = var.options.cfg.gcp.zone
+  provider = google-beta
+  project  = var.options.cfg.gcp.project
+  filter   = "name = \"${var.options.cfg.gcp.compute_on_demand_machine_type}\""
+  zone     = var.options.cfg.gcp.zone
+}
+
+locals {
+  cml_compute_on_demand_local_ssd_count = try(
+    tolist(data.google_compute_machine_types.cml_compute_on_demand.machine_types[0].bundled_local_ssds)[0].partition_count, 0
+  )
+  cml_compute_spot_local_ssd_count = try(
+    tolist(data.google_compute_machine_types.cml_compute_spot.machine_types[0].bundled_local_ssds)[0].partition_count, 0
+  )
 }
 
 resource "google_compute_region_instance_template" "cml_compute_region_instance_template" {
@@ -814,34 +828,17 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   disk {
     source_image = "${var.options.cfg.gcp.project}/${var.options.cfg.gcp.compute_image_family}"
     disk_size_gb = var.options.cfg.cluster.compute_disk_size
+    disk_type    = "pd-balanced"
   }
 
-  # GCS FUSE Cache
-  disk {
-    type         = "SCRATCH"
-    disk_type    = "local-ssd"
-    interface    = "NVME"
-    disk_size_gb = 375
-  }
-  # FIXME cmm - Need to have four locally attached SSDs for this type - n2-highmem-32
-  # Make so this can be specified in the YAML config.
-  disk {
-    type         = "SCRATCH"
-    disk_type    = "local-ssd"
-    interface    = "NVME"
-    disk_size_gb = 375
-  }
-  disk {
-    type         = "SCRATCH"
-    disk_type    = "local-ssd"
-    interface    = "NVME"
-    disk_size_gb = 375
-  }
-  disk {
-    type         = "SCRATCH"
-    disk_type    = "local-ssd"
-    interface    = "NVME"
-    disk_size_gb = 375
+  dynamic "disk" {
+    for_each = range(local.cml_compute_on_demand_local_ssd_count)
+    content {
+      type         = "SCRATCH"
+      disk_type    = "local-ssd"
+      interface    = "NVME"
+      disk_size_gb = 375
+    }
   }
 
   # Use machine as a router & disable source address checking
@@ -888,8 +885,10 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
 }
 
 data "google_compute_machine_types" "cml_compute_spot" {
-  filter = "name = \"${var.options.cfg.gcp.compute_spot_machine_type}\""
-  zone   = var.options.cfg.gcp.zone
+  provider = google-beta
+  project  = var.options.cfg.gcp.project
+  filter   = "name = \"${var.options.cfg.gcp.compute_spot_machine_type}\""
+  zone     = var.options.cfg.gcp.zone
 }
 
 # SPOT instances that can be preempted at any time.  Cheaper, but less reliable.
@@ -904,32 +903,17 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   disk {
     source_image = "${var.options.cfg.gcp.project}/${var.options.cfg.gcp.compute_image_family}"
     disk_size_gb = var.options.cfg.cluster.compute_disk_size
+    disk_type    = "pd-balanced"
   }
 
-  # GCS FUSE Cache
-  disk {
-    type         = "SCRATCH"
-    disk_type    = "local-ssd"
-    interface    = "NVME"
-    disk_size_gb = 375
-  }
-  disk {
-    type         = "SCRATCH"
-    disk_type    = "local-ssd"
-    interface    = "NVME"
-    disk_size_gb = 375
-  }
-  disk {
-    type         = "SCRATCH"
-    disk_type    = "local-ssd"
-    interface    = "NVME"
-    disk_size_gb = 375
-  }
-  disk {
-    type         = "SCRATCH"
-    disk_type    = "local-ssd"
-    interface    = "NVME"
-    disk_size_gb = 375
+  dynamic "disk" {
+    for_each = range(local.cml_compute_spot_local_ssd_count)
+    content {
+      type         = "SCRATCH"
+      disk_type    = "local-ssd"
+      interface    = "NVME"
+      disk_size_gb = 375
+    }
   }
 
   # Use machine as a router & disable source address checking
@@ -985,20 +969,53 @@ data "google_compute_zones" "cml_compute_zones_available" {
   region = var.options.cfg.gcp.region
 }
 
+# Query each zone in the region to see if the active compute machine type is
+# available there.  Zones where the type doesn't exist return an empty list.
+data "google_compute_machine_types" "cml_compute_zone_check" {
+  for_each = toset(data.google_compute_zones.cml_compute_zones_available.names)
+  project  = var.options.cfg.gcp.project
+  filter   = "name = \"${local.cml_compute_active_machine_type}\""
+  zone     = each.value
+}
+
+locals {
+  cml_compute_active_machine_type = (
+    var.options.cfg.gcp.compute_machine_provisioning_model == "on-demand"
+    ? var.options.cfg.gcp.compute_on_demand_machine_type
+    : var.options.cfg.gcp.compute_spot_machine_type
+  )
+
+  # Zones where the active compute machine type is actually available.
+  # Falls back to explicit compute_zones from config if set.
+  cml_compute_zones = (
+    try(length(var.options.cfg.gcp.compute_zones), 0) > 0
+    ? var.options.cfg.gcp.compute_zones
+    : [
+      for zone, check in data.google_compute_machine_types.cml_compute_zone_check :
+      zone if length(check.machine_types) > 0
+    ]
+  )
+}
+
 resource "google_compute_region_instance_group_manager" "cml_compute_instance_group_manager" {
   name = "cml-compute-instance-group-manager-${var.options.rand_id}"
 
   base_instance_name = var.options.cfg.cluster.compute_hostname_prefix
 
-  distribution_policy_zones        = [for zone in data.google_compute_zones.cml_compute_zones_available.names : zone]
+  distribution_policy_zones        = local.cml_compute_zones
   distribution_policy_target_shape = "EVEN"
 
+  # OPPORTUNISTIC: template changes are not rolled out automatically.
+  # PROACTIVE would replace instances immediately, but the MIG assigns new
+  # random hostnames which breaks CML cluster membership and DNS.  Use
+  # `gcloud compute instance-groups managed recreate-instances` to apply
+  # template changes on your schedule.
   update_policy {
     type                         = "OPPORTUNISTIC"
     instance_redistribution_type = "NONE"
     minimal_action               = "REPLACE"
     replacement_method           = "RECREATE"
-    max_unavailable_fixed        = length(data.google_compute_zones.cml_compute_zones_available.names)
+    max_unavailable_fixed        = length(local.cml_compute_zones)
     max_surge_fixed              = 0
   }
 

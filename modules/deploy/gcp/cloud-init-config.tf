@@ -101,16 +101,35 @@ locals {
         path        = "/provision/interface_fix.py"
         owner       = "root:root"
         permissions = "0700"
-        # Remove the cml2 generated interface, if it exists
         content = <<-EOF
           #!/usr/bin/env python3
-          import sys
-          import os
+          import json, os, subprocess, sys, yaml
+
+          # Remove the cml2 generated netplan, if it exists
           try:
-            os.unlink("/etc/netplan/00-cml2-base.yaml") 
+              os.unlink("/etc/netplan/00-cml2-base.yaml")
           except FileNotFoundError:
-            pass
-          sys.exit(0)
+              pass
+
+          # Discover primary interface (default route) and write it into
+          # virl2-base-config.yml so CML knows which NIC to use.
+          result = subprocess.run(
+              ["ip", "-j", "route", "show", "default"],
+              capture_output=True, text=True, check=True,
+          )
+          routes = json.loads(result.stdout)
+          primary = routes[0]["dev"] if routes else None
+          if not primary:
+              print("WARNING: could not discover primary interface", file=sys.stderr)
+              sys.exit(0)
+
+          cfg_path = "/etc/virl2-base-config.yml"
+          with open(cfg_path) as f:
+              cfg = yaml.safe_load(f)
+          cfg["primary_interface"] = primary
+          with open(cfg_path, "w") as f:
+              yaml.safe_dump(cfg, f)
+          print(f"Set primary_interface to {primary}")
         EOF
       },
       {
@@ -206,9 +225,10 @@ locals {
             if ! command -v pvcreate >/dev/null 2>&1; then \
               apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y lvm2 ; \
             fi ; \
-            DISKS=$(lsblk -dpno NAME | grep nvme) ; \
+            BOOT=$(lsblk -dpno PKNAME /dev/disk/by-label/cloudimg-rootfs 2>/dev/null || true) ; \
+            DISKS=$(lsblk -dpno NAME | grep nvme | grep -v "$${BOOT:-^$}") ; \
             if [ -z "$DISKS" ]; then \
-              echo "ERROR: No NVMe disks found" >&2 ; \
+              echo "ERROR: No NVMe local SSD disks found" >&2 ; \
               exit 1 ; \
             fi ; \
             echo "Creating LVM volume from: $DISKS" ; \
@@ -500,7 +520,7 @@ locals {
               (local.cluster_vxlan_interface_name) = {
                 mode = "vxlan"
                 id   = local.cluster_vxlan_vnid
-                link = var.options.cfg.gcp.controller_primary_interface_name
+                link = "__PRIMARY_INTERFACE__"
                 port = 4789
                 # MTU has 50 bytes overhead for VXLAN/UDP/IP header.
                 mtu          = local.cml_network_mtu - 50
@@ -799,7 +819,7 @@ locals {
               (local.cluster_vxlan_interface_name) = {
                 mode = "vxlan"
                 id   = local.cluster_vxlan_vnid
-                link = var.options.cfg.gcp.compute_primary_interface_name
+                link = "__PRIMARY_INTERFACE__"
                 port = 4789
                 # MTU has 50 bytes overhead for VXLAN/UDP/IP header.
                 mtu          = local.cml_network_mtu - 50
@@ -881,6 +901,13 @@ locals {
     "systemctl disable --now avahi-daemon.socket",
     "systemctl disable --now avahi-daemon.service",
 
+    # Discover the primary network interface (carries the default route) and
+    # patch the VXLAN netplan config so the link target is correct regardless
+    # of machine type or number of attached local SSDs.
+    "PRIMARY_INTERFACE=$(ip -j route show default | jq -r '.[0].dev')",
+    "echo \"Discovered primary interface: $PRIMARY_INTERFACE\"",
+    "sed -i \"s/__PRIMARY_INTERFACE__/$PRIMARY_INTERFACE/g\" /etc/netplan/60-${local.cluster_interface_name}.yaml",
+
     # Pick up new cluster interface
     "netplan apply",
 
@@ -896,9 +923,7 @@ locals {
     #TODO cmm - fix firewalld config.  We're depending on GCP firewall for now.
     "systemctl enable --now firewalld",
 
-    # Make sure primary interface is really in the public zone.  Use ifindex
-    # because addressing might be messed up.
-    "PRIMARY_INTERFACE=`ip -j link  | jq -r '.[] | select(.ifindex == 2) | .ifname'`",
+    # Make sure primary interface is really in the public zone.
     "firewall-cmd --zone=public --change-interface=$PRIMARY_INTERFACE",
 
     # Enable BGP daemon and restart FRR.  cml.sh will configure the rest.
