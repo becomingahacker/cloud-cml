@@ -144,6 +144,11 @@ function base_setup() {
     systemctl restart NetworkManager
     netplan apply
     wait_for_network_manager
+
+    if is_controller; then
+        sed -i 's/^VIRL_ALLOW_SSH_PUBKEY_AUTH=.*/VIRL_ALLOW_SSH_PUBKEY_AUTH="on"/' /etc/default/virl2
+    fi
+
     # Fix for the headless setup (tty remove as the cloud VM has none)
     sed -i '/^Standard/ s/^/#/' /lib/systemd/system/virl2-initial-setup.service
     # TRIGGER_FILE
