@@ -208,46 +208,64 @@ locals {
         })
       },
       {
+        path        = "/provision/format-local-data.sh"
+        owner       = "root:root"
+        permissions = "0755"
+        content     = <<-EOF
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          if ! command -v pvcreate >/dev/null 2>&1; then
+            apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y lvm2
+          fi
+
+          BOOT=$(lsblk -dpno PKNAME /dev/disk/by-label/cloudimg-rootfs 2>/dev/null || true)
+          DISKS=$(lsblk -dpno NAME -e 7 | grep -v "$${BOOT:-^$$}")
+          if [ -z "$DISKS" ]; then
+            echo "ERROR: No data disks found" >&2
+            exit 1
+          fi
+
+          NDISKS=$(echo "$DISKS" | wc -w)
+          echo "Creating LVM volume from $NDISKS disk(s): $DISKS"
+          for d in $DISKS; do
+            wipefs -af "$d"
+            pvcreate -ff -y "$d"
+          done
+
+          vgcreate vg_data $DISKS
+          if [ "$NDISKS" -gt 1 ]; then
+            lvcreate -l 100%FREE -n lv_data -i "$NDISKS" -I 256k vg_data
+          else
+            lvcreate -l 100%FREE -n lv_data vg_data
+          fi
+
+          mkfs.ext4 /dev/vg_data/lv_data
+          mkdir -p /srv/data
+          mount /dev/vg_data/lv_data /srv/data
+          mkdir -p /srv/data/gcsfuse-cache
+          mkdir -p /srv/data/docker
+          mkdir -p /srv/data/virl2-images
+          chown virl2:virl2 /srv/data/virl2-images
+          touch /srv/data/.formatted
+          umount /srv/data
+        EOF
+      },
+      {
         path        = "/etc/systemd/system/format-local-data.service"
         owner       = "root:root"
         permissions = "0644"
         content     = <<-EOF
           [Unit]
-          Description=Create LVM volume from NVMe local disks for /srv/data
+          Description=Create LVM volume on local/data disks for /srv/data
           Before=srv-data.mount
           ConditionPathExists=!/srv/data/.formatted
-  
+
           [Service]
           Type=oneshot
           RemainAfterExit=true
-          ExecStart=/bin/bash -c ' \
-            set -e ; \
-            if ! command -v pvcreate >/dev/null 2>&1; then \
-              apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y lvm2 ; \
-            fi ; \
-            BOOT=$(lsblk -dpno PKNAME /dev/disk/by-label/cloudimg-rootfs 2>/dev/null || true) ; \
-            DISKS=$(lsblk -dpno NAME | grep nvme | grep -v "$${BOOT:-^$}") ; \
-            if [ -z "$DISKS" ]; then \
-              echo "ERROR: No NVMe local SSD disks found" >&2 ; \
-              exit 1 ; \
-            fi ; \
-            echo "Creating LVM volume from: $DISKS" ; \
-            for d in $DISKS; do \
-              wipefs -af "$d" ; \
-              pvcreate -ff -y "$d" ; \
-            done ; \
-            vgcreate vg_data $DISKS ; \
-            lvcreate -l 100%%FREE -n lv_data vg_data ; \
-            mkfs.ext4 /dev/vg_data/lv_data ; \
-            mkdir -p /srv/data ; \
-            mount /dev/vg_data/lv_data /srv/data ; \
-            mkdir -p /srv/data/gcsfuse-cache ; \
-            mkdir -p /srv/data/docker ; \
-            mkdir -p /srv/data/virl2-images ; \
-            chown virl2:virl2 /srv/data/virl2-images ; \
-            touch /srv/data/.formatted ; \
-            umount /srv/data ; \
-          '
+          ExecStart=/provision/format-local-data.sh
+
           [Install]
           WantedBy=multi-user.target
         EOF

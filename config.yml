@@ -79,6 +79,11 @@ cluster:
   number_of_compute_nodes: 0
   compute_hostname_prefix: cml-compute
   compute_disk_size: 32
+  # Optional extra data disk for compute nodes.  Omit or leave empty to
+  # rely on local SSDs bundled with the machine type.
+  #compute_data_disk_count: 1
+  #compute_data_disk_size_gb: 512
+  #compute_data_disk_type: hyperdisk-balanced
 
 secret:
   # At this time, 'vault', 'conjur' and 'dummy' are supported secrets managers.

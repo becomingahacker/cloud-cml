@@ -815,6 +815,8 @@ locals {
   cml_compute_spot_local_ssd_count = try(
     tolist(data.google_compute_machine_types.cml_compute_spot.machine_types[0].bundled_local_ssds)[0].partition_count, 0
   )
+  cml_compute_data_disk_enabled = try(var.options.cfg.cluster.compute_data_disk_size_gb, 0) > 0
+  cml_compute_data_disk_count   = local.cml_compute_data_disk_enabled ? try(var.options.cfg.cluster.compute_data_disk_count, 1) : 0
 }
 
 resource "google_compute_region_instance_template" "cml_compute_region_instance_template" {
@@ -828,7 +830,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   disk {
     source_image = "${var.options.cfg.gcp.project}/${var.options.cfg.gcp.compute_image_family}"
     disk_size_gb = var.options.cfg.cluster.compute_disk_size
-    disk_type    = "pd-balanced"
+    disk_type    = try(var.options.cfg.cluster.compute_boot_disk_type, "pd-balanced")
   }
 
   dynamic "disk" {
@@ -838,6 +840,16 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
       disk_type    = "local-ssd"
       interface    = "NVME"
       disk_size_gb = 375
+    }
+  }
+
+  dynamic "disk" {
+    for_each = range(local.cml_compute_data_disk_count)
+    content {
+      type         = "PERSISTENT"
+      disk_size_gb = var.options.cfg.cluster.compute_data_disk_size_gb
+      disk_type    = var.options.cfg.cluster.compute_data_disk_type
+      auto_delete  = true
     }
   }
 
@@ -903,7 +915,7 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
   disk {
     source_image = "${var.options.cfg.gcp.project}/${var.options.cfg.gcp.compute_image_family}"
     disk_size_gb = var.options.cfg.cluster.compute_disk_size
-    disk_type    = "pd-balanced"
+    disk_type    = try(var.options.cfg.cluster.compute_boot_disk_type, "pd-balanced")
   }
 
   dynamic "disk" {
@@ -913,6 +925,16 @@ resource "google_compute_region_instance_template" "cml_compute_region_instance_
       disk_type    = "local-ssd"
       interface    = "NVME"
       disk_size_gb = 375
+    }
+  }
+
+  dynamic "disk" {
+    for_each = range(local.cml_compute_data_disk_count)
+    content {
+      type         = "PERSISTENT"
+      disk_size_gb = var.options.cfg.cluster.compute_data_disk_size_gb
+      disk_type    = var.options.cfg.cluster.compute_data_disk_type
+      auto_delete  = true
     }
   }
 

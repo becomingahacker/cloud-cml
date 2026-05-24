@@ -468,7 +468,8 @@ gcp:
   # an instance group with zero instances for easy scale-up of reliable machines.
   #compute_on_demand_machine_type: n2-standard-4
   #compute_on_demand_machine_type: n2-highmem-4
-  compute_on_demand_machine_type: c3-standard-176-lssd
+  #compute_on_demand_machine_type: c3-standard-176-lssd
+  compute_on_demand_machine_type: n4-highmem-64
 
   # Spot compute machine type.  Required if compute_machine_provisioning_model
   # is 'spot'.  If still specified and compute_machine_provisioning_model
@@ -520,9 +521,16 @@ cluster:
   # No longer used, see the secret manager section below
   #secret: your-secret-password
   allow_vms_on_controller: false
-  number_of_compute_nodes: 1
+  number_of_compute_nodes: 8
   compute_hostname_prefix: cml-compute
   compute_disk_size: 128
+  compute_boot_disk_type: hyperdisk-balanced
+  # Optional extra data disk for compute nodes.  Used for /srv/data (LVM),
+  # docker storage, and VM images.  Omit or leave empty to rely on local
+  # SSDs bundled with the machine type instead.
+  compute_data_disk_count: 3
+  compute_data_disk_size_gb: 512
+  compute_data_disk_type: hyperdisk-balanced
 
 secret:
   # At this time, 'vault', 'conjur' and 'dummy' are supported secrets managers.
