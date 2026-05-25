@@ -785,7 +785,9 @@ locals {
           </network>"
 
               echo "  [create] $name  (mac 02:00:00:00:$${pod_hex}:$${suffix})"
-              echo "$xml" | virsh net-create /dev/stdin
+              echo "$xml" | virsh net-define /dev/stdin
+              virsh net-autostart "$name"
+              virsh net-start "$name"
             done
           done
 
