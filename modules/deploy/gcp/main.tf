@@ -15,6 +15,7 @@ locals {
     "certificatemanager.googleapis.com",
     "networkconnectivity.googleapis.com",
     "secretmanager.googleapis.com",
+    "securitycenter.googleapis.com",
     "storage-component.googleapis.com",
     "storage.googleapis.com",
   ]
