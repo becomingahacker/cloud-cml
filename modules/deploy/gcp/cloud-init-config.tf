@@ -219,6 +219,16 @@ locals {
             apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y lvm2
           fi
 
+          # If the VG already exists, just recreate the sentinel and exit.
+          if vgs vg_data &>/dev/null; then
+            echo "vg_data already exists; restoring sentinel only"
+            mkdir -p /srv/data
+            mount /dev/vg_data/lv_data /srv/data
+            touch /srv/data/.formatted
+            umount /srv/data
+            exit 0
+          fi
+
           BOOT=$(lsblk -dpno PKNAME /dev/disk/by-label/cloudimg-rootfs 2>/dev/null || true)
           DISKS=$(lsblk -dpno NAME -e 7 | grep -v "$${BOOT:-^$$}")
           if [ -z "$DISKS" ]; then
