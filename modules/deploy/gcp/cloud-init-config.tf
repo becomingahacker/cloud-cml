@@ -187,7 +187,7 @@ locals {
         content = yamlencode({
           implicit-dirs = true
           file-cache = {
-            max-size-mb               = -1
+            max-size-mb               = 300000
             cache-file-for-range-read = false
             enable-parallel-downloads = true
           }
