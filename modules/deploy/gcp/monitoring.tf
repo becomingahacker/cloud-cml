@@ -570,3 +570,30 @@ resource "google_monitoring_alert_policy" "cml_compute_disk_high" {
   notification_channels = []
   enabled               = true
 }
+
+# --- CML Admin Password in GCP Secret Manager ---
+
+resource "google_secret_manager_secret" "cml_admin_password" {
+  project   = var.options.cfg.gcp.project
+  secret_id = "cml-admin-password"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "cml_admin_password" {
+  secret      = google_secret_manager_secret.cml_admin_password.id
+  secret_data = var.options.cfg.secrets.app.secret
+
+  lifecycle {
+    ignore_changes = [secret_data]
+  }
+}
+
+resource "google_secret_manager_secret_iam_member" "cml_admin_password_accessor" {
+  project   = var.options.cfg.gcp.project
+  secret_id = google_secret_manager_secret.cml_admin_password.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${local.cml_service_account.email}"
+}
