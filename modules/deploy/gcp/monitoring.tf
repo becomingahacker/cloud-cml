@@ -306,8 +306,64 @@ resource "google_monitoring_dashboard" "cml" {
     gridLayout = {
       columns = 3
       widgets = [
+        # Row 1: Status overview (pie charts)
         {
-          title = "Cluster CPU Utilization"
+          title = "Compute Health"
+          pieChart = {
+            dataSets = [{
+              timeSeriesQuery = {
+                timeSeriesFilter = {
+                  filter = "metric.type=\"custom.googleapis.com/cml/cluster/computes_by_status\""
+                  aggregation = {
+                    alignmentPeriod  = "60s"
+                    perSeriesAligner = "ALIGN_MAX"
+                  }
+                }
+              }
+              minAlignmentPeriod = "60s"
+            }]
+            chartType = "DONUT"
+          }
+        },
+        {
+          title = "Lab State"
+          pieChart = {
+            dataSets = [{
+              timeSeriesQuery = {
+                timeSeriesFilter = {
+                  filter = "metric.type=\"custom.googleapis.com/cml/cluster/labs_by_state\""
+                  aggregation = {
+                    alignmentPeriod  = "60s"
+                    perSeriesAligner = "ALIGN_MAX"
+                  }
+                }
+              }
+              minAlignmentPeriod = "60s"
+            }]
+            chartType = "DONUT"
+          }
+        },
+        {
+          title = "Node State"
+          pieChart = {
+            dataSets = [{
+              timeSeriesQuery = {
+                timeSeriesFilter = {
+                  filter = "metric.type=\"custom.googleapis.com/cml/cluster/nodes_by_state\""
+                  aggregation = {
+                    alignmentPeriod  = "60s"
+                    perSeriesAligner = "ALIGN_MAX"
+                  }
+                }
+              }
+              minAlignmentPeriod = "60s"
+            }]
+            chartType = "DONUT"
+          }
+        },
+        # Row 2: Cluster-wide resource utilization
+        {
+          title = "Cluster CPU"
           xyChart = {
             dataSets = [{
               timeSeriesQuery = {
@@ -321,7 +377,7 @@ resource "google_monitoring_dashboard" "cml" {
           }
         },
         {
-          title = "Cluster Memory Usage"
+          title = "Cluster Memory"
           xyChart = {
             dataSets = [
               {
@@ -344,6 +400,21 @@ resource "google_monitoring_dashboard" "cml" {
             yAxis = { label = "bytes" }
           }
         },
+        # Row 3: Per-compute breakdown
+        {
+          title = "Per-Compute CPU"
+          xyChart = {
+            dataSets = [{
+              timeSeriesQuery = {
+                timeSeriesFilter = {
+                  filter = "metric.type=\"custom.googleapis.com/cml/compute/cpu_percent\""
+                }
+              }
+              plotType = "LINE"
+            }]
+            yAxis = { label = "%" }
+          }
+        },
         {
           title = "Running VMs per Compute"
           xyChart = {
@@ -358,72 +429,9 @@ resource "google_monitoring_dashboard" "cml" {
             yAxis = { label = "VMs" }
           }
         },
+        # Row 4: Lab and storage
         {
-          title = "Per-Compute CPU %"
-          xyChart = {
-            dataSets = [{
-              timeSeriesQuery = {
-                timeSeriesFilter = {
-                  filter = "metric.type=\"custom.googleapis.com/cml/compute/cpu_percent\""
-                }
-              }
-              plotType = "LINE"
-            }]
-            yAxis = { label = "%" }
-          }
-        },
-        {
-          title = "Per-Compute Memory Used"
-          xyChart = {
-            dataSets = [{
-              timeSeriesQuery = {
-                timeSeriesFilter = {
-                  filter = "metric.type=\"custom.googleapis.com/cml/compute/memory_used_bytes\""
-                }
-              }
-              plotType = "LINE"
-            }]
-            yAxis = { label = "bytes" }
-          }
-        },
-        {
-          title = "Compute Health"
-          pieChart = {
-            dataSets = [{
-              timeSeriesQuery = {
-                timeSeriesFilter = {
-                  filter = "metric.type=\"custom.googleapis.com/cml/cluster/computes_by_status\""
-                  aggregation = {
-                    alignmentPeriod  = "60s"
-                    perSeriesAligner = "ALIGN_MEAN"
-                  }
-                }
-              }
-              minAlignmentPeriod = "60s"
-            }]
-            chartType = "DONUT"
-          }
-        },
-        {
-          title = "Node Lifecycle"
-          pieChart = {
-            dataSets = [{
-              timeSeriesQuery = {
-                timeSeriesFilter = {
-                  filter = "metric.type=\"custom.googleapis.com/cml/cluster/nodes_by_state\""
-                  aggregation = {
-                    alignmentPeriod  = "60s"
-                    perSeriesAligner = "ALIGN_MEAN"
-                  }
-                }
-              }
-              minAlignmentPeriod = "60s"
-            }]
-            chartType = "DONUT"
-          }
-        },
-        {
-          title = "Labs - Nodes Booted (by Pod)"
+          title = "Nodes Booted by Pod"
           xyChart = {
             dataSets = [{
               timeSeriesQuery = {
@@ -437,30 +445,26 @@ resource "google_monitoring_dashboard" "cml" {
           }
         },
         {
-          title = "Lab State"
-          pieChart = {
-            dataSets = [{
-              timeSeriesQuery = {
-                timeSeriesFilter = {
-                  filter = "metric.type=\"custom.googleapis.com/cml/cluster/labs_by_state\""
-                  aggregation = {
-                    alignmentPeriod  = "60s"
-                    perSeriesAligner = "ALIGN_MEAN"
-                  }
-                }
-              }
-              minAlignmentPeriod = "60s"
-            }]
-            chartType = "DONUT"
-          }
-        },
-        {
-          title = "Compute Disk Used"
+          title = "Per-Compute Disk"
           xyChart = {
             dataSets = [{
               timeSeriesQuery = {
                 timeSeriesFilter = {
                   filter = "metric.type=\"custom.googleapis.com/cml/compute/disk_used_bytes\""
+                }
+              }
+              plotType = "LINE"
+            }]
+            yAxis = { label = "bytes" }
+          }
+        },
+        {
+          title = "Per-Compute Memory"
+          xyChart = {
+            dataSets = [{
+              timeSeriesQuery = {
+                timeSeriesFilter = {
+                  filter = "metric.type=\"custom.googleapis.com/cml/compute/memory_used_bytes\""
                 }
               }
               plotType = "LINE"

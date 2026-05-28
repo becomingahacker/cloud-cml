@@ -331,6 +331,7 @@ def collect_node_metrics(
     for lab_id, lab_data in labs.items():
         state_str = lab_data.get("state", "STOPPED")
         if state_str not in ("STARTED", "BOOTED"):
+            global_state_counts["STOPPED"] += lab_data.get("node_count", 0)
             continue
 
         title = lab_data.get("lab_title", "")
