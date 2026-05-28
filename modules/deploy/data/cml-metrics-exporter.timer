@@ -1,0 +1,11 @@
+[Unit]
+Description=Run CML Metrics Exporter every 60 seconds
+
+[Timer]
+OnBootSec=120
+OnUnitActiveSec=60
+AccuracySec=5
+RandomizedDelaySec=5
+
+[Install]
+WantedBy=timers.target

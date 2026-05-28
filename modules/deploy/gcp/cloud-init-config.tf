@@ -101,7 +101,7 @@ locals {
         path        = "/provision/interface_fix.py"
         owner       = "root:root"
         permissions = "0700"
-        content = <<-EOF
+        content     = <<-EOF
           #!/usr/bin/env python3
           import json, os, subprocess, sys, yaml
 
@@ -825,6 +825,25 @@ locals {
           echo "Done."
         EOF
       },
+      # CML Metrics Exporter for GCP Cloud Monitoring
+      {
+        path        = "/opt/cml-metrics/exporter.py"
+        owner       = "root:root"
+        permissions = "0755"
+        content     = file("${path.module}/../data/cml-metrics-exporter.py")
+      },
+      {
+        path        = "/etc/systemd/system/cml-metrics-exporter.service"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = file("${path.module}/../data/cml-metrics-exporter.service")
+      },
+      {
+        path        = "/etc/systemd/system/cml-metrics-exporter.timer"
+        owner       = "root:root"
+        permissions = "0644"
+        content     = file("${path.module}/../data/cml-metrics-exporter.timer")
+      },
     ],
     # Only present on controller
     local.cloud_init_config_libvirt_networks
@@ -960,10 +979,6 @@ locals {
     "sed -i 's/bgpd=no/bgpd=yes/' /etc/frr/daemons",
     "systemctl restart frr",
 
-    # TODO cmm - Disable Google OSConfig.  It blocks shutdowns right now.  Need
-    # to figure out why.
-    "systemctl disable --now google-osconfig-agent.service",
-
     "firewall-cmd --permanent --new-service=vxlan",
     "firewall-cmd --permanent --service=vxlan --add-port=4789/udp",
     "firewall-cmd --permanent --service=vxlan --add-source-port=32768-60999/udp",
@@ -1043,6 +1058,10 @@ locals {
       "firewall-cmd --permanent --policy=public-to-dmz --add-egress-zone=dmz",
       "firewall-cmd --permanent --policy=public-to-dmz --set-target=ACCEPT",
       "firewall-cmd --reload",
+      # CML Metrics Exporter: install dependencies and enable timer
+      "pip3 install --break-system-packages google-cloud-monitoring google-cloud-secret-manager pyyaml",
+      "systemctl daemon-reload",
+      "systemctl enable --now cml-metrics-exporter.timer",
     ]
   )
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=CML Metrics Exporter for GCP Cloud Monitoring
+After=network-online.target virl2.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/cml-metrics/exporter.py
+TimeoutStartSec=120
+StandardOutput=journal
+StandardError=journal
