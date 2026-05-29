@@ -1105,6 +1105,15 @@ locals {
       # Airhandler (WiFi link service) is not used on computes.
       # Mask it so virl2.target cannot restart it via PartOf= dependency.
       "systemctl mask --now virl2-airhandler.service",
+
+      # Fix ksmtuned: Ubuntu 24.04 QEMU 8.x uses '-accel kvm' instead of
+      # '-enable-kvm'.  Without this patch ksmtuned never detects running VMs
+      # and leaves KSM permanently off.
+      "sed -i 's/-enable-kvm/-accel kvm/g' /usr/sbin/ksmtuned",
+      # Raise activation threshold so ksmtuned starts KSM even when
+      # buffers/cache inflate the apparent free memory.
+      "sed -i 's/^KSM_THRES_COEF=.*/KSM_THRES_COEF=50/' /etc/ksmtuned.conf",
+      "systemctl restart ksmtuned",
     ]
   )
 
