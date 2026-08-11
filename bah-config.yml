@@ -84,8 +84,8 @@ gcp:
   # This zone is only used for controller, and the compute nodes will be spread
   # across available zones in the region. 
   project: gcp-asigbahgcp-nprd-47930
-  region: us-west4
-  zone: us-west4-a
+  region: us-east1
+  zone: us-east1-b
 
   # CML service account ID to use.  If left empty, a new service account will be
   # created using 'cml-service-account-' and a random suffix.  Otherwise
@@ -97,7 +97,7 @@ gcp:
   # cml2 packages and refplat images.
   bucket: bah-machine-images
   # Google Cloud Storage bucket for /var/lib/libvirt/images.  Required.
-  libvirt_images_bucket: bah-libvirt-images-uw4
+  libvirt_images_bucket: bah-libvirt-images-ue1
 
   # Create a new network.  If set to 'false', the network indicated by
   # 'network_name' is used.
@@ -126,7 +126,7 @@ gcp:
   network_mtu: 8896
 
   # IP collection.  Used to set the BYOIPv6 for the controller subnet.
-  subnet_ip_collection: regions/us-west4/publicDelegatedPrefixes/asig-bah-prod-us-west4-net-2602-80a-f005-300-56
+  subnet_ip_collection: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-net-2602-80a-f005-300-56
 
   # CML firewall policy name.  Leave empty to use an existing firewall policy
   # associated with the network indicated above.  VPC firewall rules are not
@@ -349,8 +349,8 @@ gcp:
       # IP collection for BYOIPv6 used with the network load balancer for
       # protocol forwarding.  Must match the public delegated prefix name in GCP
       # for the NLB IPv6 pool (verify with gcloud compute public-delegated-prefixes list).
-      # Offensive Summit temp: /48 covering 256 x /56 pod blocks (us-west4).
-      load_balancer_ip_collection_v6: regions/us-west4/publicDelegatedPrefixes/asig-bah-prod-us-west4-nlb-2602-80a-f006-48
+      # Offensive Summit temp: /48 covering 256 x /56 pod blocks.
+      load_balancer_ip_collection_v6: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-nlb-2602-80a-f006-48
       # IPv6 CIDR block. Used for protocol forwarding.  The first /56 is used
       # for the CML controller.  Subsequent /56s are used for pods.  The number
       # of /56s forwarded is equal to the number of IPv4 addresses available for
@@ -395,7 +395,7 @@ gcp:
           # scope = gcp.region and scope global). List only additional prefixes here.
           # https://github.com/femueller/cloud-ip-ranges
           allow_in:
-            # STO-ASIG-IPV4 (Offensive Summit temp, us-west4 BYOIPv4 /25)
+            # STO-ASIG-IPV4 (Offensive Summit temp, BYOIPv4 /25)
             - cidr: 172.98.18.0/25
               le: 32
             # Labs
@@ -406,7 +406,7 @@ gcp:
             - cidr: 198.18.0.0/15
               le: 24
           allow_out:
-            # STO-ASIG-IPV4 (Offensive Summit temp)
+            # STO-ASIG-IPV4 (Offensive Summit temp, BYOIPv4 /25)
             - cidr: 172.98.18.0/25
               le: 32
             # Labs
@@ -419,7 +419,7 @@ gcp:
           # needs Internet access
           originate_default: true
           allow_in:
-            # Offensive Summit temp (us-west4 BYOIPv6 /48; /56 blocks and more-specifics)
+            # Offensive Summit temp (BYOIPv6 /48; /56 blocks and more-specifics)
             - cidr: 2602:80a:f006::/48
               ge: 56
           allow_out:
@@ -521,7 +521,7 @@ cluster:
   # No longer used, see the secret manager section below
   #secret: your-secret-password
   allow_vms_on_controller: false
-  number_of_compute_nodes: 8
+  number_of_compute_nodes: 2
   compute_hostname_prefix: cml-compute
   compute_disk_size: 128
   compute_boot_disk_type: hyperdisk-balanced
@@ -632,7 +632,7 @@ license:
   # **No longer used, see the secret manager section above**
   #token: your-smart-licensing-token
   # Unless you have additional node licenses available, leave this at zero
-  nodes: 0
+  nodes: 200
 
 # Select the reference platforms needed by un-/commenting them. The selected
 # reference platforms will be copied from the specified cloud storage and must
