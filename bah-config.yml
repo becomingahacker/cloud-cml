@@ -84,8 +84,8 @@ gcp:
   # This zone is only used for controller, and the compute nodes will be spread
   # across available zones in the region. 
   project: gcp-asigbahgcp-nprd-47930
-  region: us-east1
-  zone: us-east1-b
+  region: asia-south1
+  zone: asia-south1-a
 
   # CML service account ID to use.  If left empty, a new service account will be
   # created using 'cml-service-account-' and a random suffix.  Otherwise
@@ -97,7 +97,7 @@ gcp:
   # cml2 packages and refplat images.
   bucket: bah-machine-images
   # Google Cloud Storage bucket for /var/lib/libvirt/images.  Required.
-  libvirt_images_bucket: bah-libvirt-images-ue1
+  libvirt_images_bucket: bah-libvirt-images-as1
 
   # Create a new network.  If set to 'false', the network indicated by
   # 'network_name' is used.
@@ -126,7 +126,7 @@ gcp:
   network_mtu: 8896
 
   # IP collection.  Used to set the BYOIPv6 for the controller subnet.
-  subnet_ip_collection: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-net-2602-80a-f005-300-56
+  subnet_ip_collection: regions/asia-south1/publicDelegatedPrefixes/asig-bah-prod-asia-south1-net-2602-80a-f005-300-56
 
   # CML firewall policy name.  Leave empty to use an existing firewall policy
   # associated with the network indicated above.  VPC firewall rules are not
@@ -350,7 +350,7 @@ gcp:
       # protocol forwarding.  Must match the public delegated prefix name in GCP
       # for the NLB IPv6 pool (verify with gcloud compute public-delegated-prefixes list).
       # Offensive Summit temp: /48 covering 256 x /56 pod blocks.
-      load_balancer_ip_collection_v6: regions/us-east1/publicDelegatedPrefixes/asig-bah-prod-us-east1-nlb-2602-80a-f006-48
+      load_balancer_ip_collection_v6: regions/asia-south1/publicDelegatedPrefixes/asig-bah-prod-asia-south1-nlb-2602-80a-f006-48
       # IPv6 CIDR block. Used for protocol forwarding.  The first /56 is used
       # for the CML controller.  Subsequent /56s are used for pods.  The number
       # of /56s forwarded is equal to the number of IPv4 addresses available for
